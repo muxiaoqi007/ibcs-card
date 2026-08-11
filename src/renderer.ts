@@ -1,0 +1,540 @@
+import { CardSettings, KpiCard, TrendPoint } from "./model";
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function selectionKey(selectionId: unknown): string | undefined {
+  if (!selectionId) return undefined;
+  const candidate = selectionId as { getKey?: () => string };
+  try {
+    return typeof candidate.getKey === "function" ? candidate.getKey() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type RendererCallbacks = {
+  onSelect?: (card: KpiCard, multi: boolean, isSelected: boolean) => void;
+  onClearSelection?: () => void;
+  onContextMenu?: (card: KpiCard, x: number, y: number) => void;
+};
+
+export class CardsRenderer {
+  private order: string[] = [];
+  private focusedKey: string | null = null;
+  private layoutOverride: "grid" | "row" | null = null;
+  private root: HTMLElement;
+  private cards: KpiCard[] = [];
+  private selectedKeys = new Set<string>();
+  private settings!: CardSettings;
+
+  constructor(root: HTMLElement, private callbacks: RendererCallbacks = {}) {
+    this.root = root;
+    this.root.classList.add("ibcs-visual");
+  }
+
+  public syncSelection(selectionIds: unknown[]): void {
+    const activeIds = new Set(selectionIds.map(selectionKey).filter((key): key is string => Boolean(key)));
+    this.selectedKeys = new Set(
+      this.cards
+        .filter(card => {
+          const key = selectionKey(card.selectionId);
+          return key != null && activeIds.has(key);
+        })
+        .map(card => card.key)
+    );
+    if (this.settings) this.render(this.cards, this.settings);
+  }
+
+  render(cards: KpiCard[], settings: CardSettings): void {
+    this.cards = this.sortCards(cards, settings.sortMode);
+    const availableKeys = new Set(cards.map(card => card.key));
+    for (const key of this.selectedKeys) {
+      if (!availableKeys.has(key)) this.selectedKeys.delete(key);
+    }
+    this.settings = { ...settings, layout: this.layoutOverride ?? settings.layout };
+    this.root.style.setProperty("--good", this.settings.goodColor);
+    this.root.style.setProperty("--bad", this.settings.badColor);
+    this.root.style.setProperty("--actual", this.settings.actualColor);
+    this.root.style.setProperty("--comparison", this.settings.comparisonColor);
+    this.root.style.setProperty("--gap", `${this.settings.spacing}px`);
+    this.root.style.setProperty("--card-bg", this.settings.cardBackgroundColor);
+    this.root.style.setProperty("--card-border", this.settings.cardBorderColor);
+    this.root.style.setProperty("--card-border-width", `${this.settings.cardBorderWidth}px`);
+    this.root.style.setProperty("--card-radius", `${this.settings.cardCornerRadius}px`);
+    this.root.style.setProperty("--title-size", `${this.settings.titleFontSize}px`);
+    this.root.style.setProperty("--title-color", this.settings.titleColor);
+    this.root.style.setProperty("--title-weight", this.settings.titleBold ? "700" : "400");
+    this.root.style.setProperty("--value-size", `${this.settings.valueFontSize}px`);
+    this.root.style.setProperty("--value-color", this.settings.valueColor);
+    this.root.style.setProperty("--value-weight", this.settings.valueBold ? "700" : "400");
+    this.root.style.setProperty("--variance-size", `${this.settings.varianceFontSize}px`);
+    this.root.style.setProperty("--variance-label", this.settings.varianceLabelColor);
+    this.root.style.setProperty("--comment-color", this.settings.commentColor);
+    this.root.style.setProperty("--chart-height", `${this.settings.chartHeight}px`);
+    this.root.style.setProperty("--selected-border", this.settings.selectedBorderColor);
+    this.root.style.setProperty("--selected-bg", this.settings.selectedBackgroundColor);
+    this.root.style.setProperty("--selected-width", `${this.settings.selectedBorderWidth}px`);
+    this.root.style.setProperty("--unselected-opacity", String(this.settings.unselectedOpacity / 100));
+    this.root.style.fontFamily = this.settings.fontFamily;
+    this.root.replaceChildren();
+
+    if (!cards.length) {
+      this.renderLanding();
+      return;
+    }
+
+    if (this.settings.showToolbar) this.root.append(this.createToolbar());
+    const container = document.createElement("div");
+    container.className = `cards-container layout-${this.settings.layout}`;
+    container.style.setProperty("--columns", String(Math.max(1, Math.min(8, this.settings.maxCardsInRow))));
+    container.onclick = event => {
+      if (event.target !== container || this.selectedKeys.size === 0) return;
+      this.selectedKeys.clear();
+      this.callbacks.onClearSelection?.();
+      this.render(this.cards, this.settings);
+    };
+
+    const extent = this.settings.scaleCharts ? this.getGlobalExtent(this.cards) : null;
+    for (const card of this.cards) container.append(this.createCard(card, extent, false));
+    this.root.append(container);
+
+    if (this.focusedKey) {
+      const focused = this.cards.find(card => card.key === this.focusedKey);
+      if (focused) this.root.append(this.createFocus(focused, extent));
+    }
+  }
+
+  private sortCards(cards: KpiCard[], mode: CardSettings["sortMode"]): KpiCard[] {
+    const available = new Set(cards.map(card => card.key));
+    this.order = this.order.filter(key => available.has(key));
+    const known = new Set(this.order);
+    for (const card of cards) {
+      if (!known.has(card.key)) {
+        this.order.push(card.key);
+        known.add(card.key);
+      }
+    }
+
+    const originalRank = new Map(this.order.map((key, index) => [key, index]));
+    const stable = (a: KpiCard, b: KpiCard) => (originalRank.get(a.key) ?? 9999) - (originalRank.get(b.key) ?? 9999);
+    const compareNumber = (a: number | null, b: number | null, descending: boolean): number => {
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return descending ? b - a : a - b;
+    };
+    const variance = (card: KpiCard): number | null => {
+      const reference = card.plan ?? card.previous;
+      if (card.value == null || reference == null) return null;
+      return reference === 0 ? card.value - reference : (card.value - reference) / Math.abs(reference);
+    };
+
+    return [...cards].sort((a, b) => {
+      let result = 0;
+      if (mode === "valueDesc") result = compareNumber(a.value, b.value, true);
+      else if (mode === "valueAsc") result = compareNumber(a.value, b.value, false);
+      else if (mode === "varianceDesc") result = compareNumber(variance(a), variance(b), true);
+      else if (mode === "varianceAsc") result = compareNumber(variance(a), variance(b), false);
+      else if (mode === "titleAsc") result = a.title.localeCompare(b.title, "zh-CN", { numeric: true });
+      else if (mode === "titleDesc") result = b.title.localeCompare(a.title, "zh-CN", { numeric: true });
+      return result || stable(a, b);
+    });
+  }
+
+  private renderLanding(): void {
+    const landing = document.createElement("div");
+    landing.className = "landing";
+    const mark = document.createElement("div");
+    mark.className = "landing-mark";
+    mark.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
+    const heading = document.createElement("h2");
+    heading.textContent = "IBCS Card";
+    const description = document.createElement("p");
+    description.append("请添加", strong("实际值"), "和", strong("指标分组"), "字段以生成响应式指标卡。" );
+    const hint = document.createElement("small");
+    hint.textContent = "可选字段：趋势类别、去年同期、计划、预测和备注";
+    landing.append(mark, heading, description, hint);
+    this.root.append(landing);
+  }
+
+  private createToolbar(): HTMLElement {
+    const bar = document.createElement("div");
+    bar.className = "visual-toolbar";
+    bar.setAttribute("aria-label", "卡片布局工具栏");
+    const handle = document.createElement("span");
+    handle.className = "toolbar-handle";
+    handle.textContent = "⌄";
+    const panel = document.createElement("div");
+    panel.className = "toolbar-panel";
+    const gridButton = toolbarButton("▦", "卡片布局");
+    gridButton.dataset.layout = "grid";
+    const rowButton = toolbarButton("☷", "行布局");
+    rowButton.dataset.layout = "row";
+    const divider = document.createElement("span");
+    divider.className = "toolbar-divider";
+    const syncButton = toolbarButton("↕", "统一趋势图刻度");
+    syncButton.dataset.scale = "toggle";
+    panel.append(gridButton, rowButton, divider, syncButton);
+    bar.append(handle, panel);
+    bar.querySelectorAll<HTMLButtonElement>("[data-layout]").forEach(button => {
+      button.classList.toggle("active", button.dataset.layout === this.settings.layout);
+      button.onclick = () => {
+        this.layoutOverride = button.dataset.layout as "grid" | "row";
+        this.render(this.cards, this.settings);
+      };
+    });
+    const scaleButton = bar.querySelector<HTMLButtonElement>("[data-scale]")!;
+    scaleButton.classList.toggle("active", this.settings.scaleCharts);
+    scaleButton.onclick = () => this.render(this.cards, { ...this.settings, scaleCharts: !this.settings.scaleCharts });
+    return bar;
+  }
+
+  private createCard(card: KpiCard, extent: [number, number] | null, focused: boolean): HTMLElement {
+    const article = document.createElement("article");
+    const isSelected = this.selectedKeys.has(card.key);
+    const isDimmed = this.settings.dimUnselected && this.selectedKeys.size > 0 && !isSelected;
+    article.className = `kpi-card style-${this.settings.cardStyle} align-${this.settings.valueAlignment} variance-${this.settings.variancePosition}${focused ? " is-focused" : ""}${isSelected ? " is-selected" : ""}${isDimmed ? " is-dimmed" : ""}`;
+    article.draggable = !focused && this.settings.sortMode === "original";
+    article.dataset.key = card.key;
+    article.tabIndex = 0;
+    article.setAttribute("aria-label", `${card.title}: ${formatValue(card.value, card.format)}`);
+
+    const header = document.createElement("header");
+    const title = document.createElement("div");
+    title.className = `card-title${this.settings.wrapTitle ? " wrap" : ""}`;
+    title.textContent = card.title;
+    title.title = card.title;
+    title.hidden = !this.settings.showTitle;
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+    if (card.comment) {
+      const commentButton = actionButton("●", "备注", "comment-button");
+      commentButton.title = card.comment;
+      actions.append(commentButton);
+    }
+    actions.append(actionButton("↗", "聚焦卡片", "focus-button"), actionButton("•••", "更多选项", "more-button"));
+    header.append(title, actions);
+    article.append(header);
+
+    const metrics = document.createElement("div");
+    metrics.className = "metrics";
+    const headline = document.createElement("div");
+    headline.className = "headline";
+    headline.textContent = formatValue(card.value, card.format);
+    if (this.settings.showValue) metrics.append(headline);
+
+    const reference = card.plan ?? card.previous;
+    if (this.settings.showVariance !== "none" && reference != null && card.value != null) {
+      metrics.append(this.createVariance(card.value, reference, card.plan != null ? "PL" : "PY", card.format));
+    }
+    if (this.settings.showVariance !== "none" && card.plan != null && card.previous != null && card.value != null) {
+      metrics.append(this.createVariance(card.value, card.previous, "PY", card.format, true));
+    }
+    article.append(metrics);
+
+    if (card.secondary.length) {
+      const secondary = document.createElement("div");
+      secondary.className = "secondary-values";
+      card.secondary.forEach(item => {
+        const node = document.createElement("span");
+        node.append(strong(item.label), ` ${formatValue(item.value, item.format)}`);
+        secondary.append(node);
+      });
+      article.append(secondary);
+    }
+
+    if (!this.settings.suppressChart && card.points.length > 1) {
+      const chart = createChart(card.points, this.settings, extent);
+      chart.classList.add("microchart");
+      article.append(chart);
+    } else {
+      article.classList.add("no-chart");
+    }
+
+    article.onclick = event => {
+      if ((event.target as HTMLElement).closest("button")) return;
+      const multi = event.ctrlKey || event.metaKey;
+      this.callbacks.onSelect?.(card, multi, isSelected);
+    };
+    article.oncontextmenu = event => {
+      event.preventDefault();
+      this.callbacks.onContextMenu?.(card, event.clientX, event.clientY);
+    };
+    article.querySelector<HTMLButtonElement>(".focus-button")!.onclick = event => {
+      event.stopPropagation();
+      this.focusedKey = card.key;
+      this.render(this.cards, this.settings);
+    };
+    article.querySelector<HTMLButtonElement>(".more-button")!.onclick = event => {
+      event.stopPropagation();
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      this.callbacks.onContextMenu?.(card, rect.left, rect.bottom);
+    };
+    this.attachDrag(article);
+    return article;
+  }
+
+  private createVariance(actual: number, comparison: number, label: string, format?: string, compact = false): HTMLElement {
+    const absolute = actual - comparison;
+    const relative = comparison === 0 ? null : absolute / Math.abs(comparison);
+    const semantic = (this.settings.invertNegative ? -1 : 1) * absolute;
+    const positive = semantic >= 0;
+    const node = document.createElement("div");
+    node.className = `variance ${positive ? "positive" : "negative"}${compact ? " compact" : ""}`;
+    const absText = `${absolute >= 0 ? "+" : ""}${formatValue(absolute, format, true)}`;
+    const relText = relative == null ? "–" : `${relative >= 0 ? "+" : ""}${(relative * 100).toFixed(Math.abs(relative) < 0.1 ? 1 : 0)}%`;
+    const icon = document.createElement("span");
+    icon.className = "variance-icon";
+    icon.textContent = positive ? "↑" : "↓";
+    const value = document.createElement("span");
+    if (this.settings.showVariance === "absolute") value.textContent = absText;
+    else if (this.settings.showVariance === "relative") value.textContent = relText;
+    else {
+      const separator = document.createElement("span");
+      separator.className = "variance-separator";
+      separator.textContent = "|";
+      value.append(relText, separator, absText);
+    }
+    const comparisonLabel = document.createElement("em");
+    comparisonLabel.textContent = `Δ${label}`;
+    node.append(icon, value, comparisonLabel);
+    return node;
+  }
+
+  private createFocus(card: KpiCard, extent: [number, number] | null): HTMLElement {
+    const overlay = document.createElement("div");
+    overlay.className = "focus-overlay";
+    const panel = document.createElement("section");
+    panel.className = "focus-panel";
+    const close = document.createElement("button");
+    close.className = "focus-close";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "关闭聚焦模式");
+    close.onclick = () => {
+      this.focusedKey = null;
+      this.render(this.cards, this.settings);
+    };
+    panel.append(close, this.createCard(card, extent, true));
+    if (card.comment) {
+      const comment = document.createElement("aside");
+      comment.className = "focus-comment";
+      const paragraph = document.createElement("p");
+      paragraph.textContent = card.comment;
+      comment.append(strong("备注"), paragraph);
+      panel.append(comment);
+    }
+    overlay.onclick = event => { if (event.target === overlay) close.click(); };
+    overlay.append(panel);
+    return overlay;
+  }
+
+  private attachDrag(cardElement: HTMLElement): void {
+    cardElement.ondragstart = event => {
+      event.dataTransfer?.setData("text/plain", cardElement.dataset.key ?? "");
+      event.dataTransfer!.effectAllowed = "move";
+      cardElement.classList.add("dragging");
+    };
+    cardElement.ondragend = () => cardElement.classList.remove("dragging");
+    cardElement.ondragover = event => {
+      event.preventDefault();
+      event.dataTransfer!.dropEffect = "move";
+    };
+    cardElement.ondrop = event => {
+      event.preventDefault();
+      const source = event.dataTransfer?.getData("text/plain");
+      const target = cardElement.dataset.key;
+      if (!source || !target || source === target) return;
+      const from = this.order.indexOf(source);
+      const to = this.order.indexOf(target);
+      this.order.splice(from, 1);
+      this.order.splice(to, 0, source);
+      this.render(this.cards, this.settings);
+    };
+  }
+
+  private getGlobalExtent(cards: KpiCard[]): [number, number] | null {
+    const values = cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan]).filter(isNumber));
+    return values.length ? [Math.min(...values), Math.max(...values)] : null;
+  }
+}
+
+function createChart(points: TrendPoint[], settings: CardSettings, extent: [number, number] | null): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 320 120");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "趋势图");
+  const values = points.flatMap(point => [point.actual, point.previous, point.plan]).filter(isNumber);
+  if (!values.length) return svg;
+  let min = extent?.[0] ?? Math.min(...values);
+  let max = extent?.[1] ?? Math.max(...values);
+  if (max === min) { max += 1; min -= 1; }
+  const pad = (max - min) * 0.08;
+  min -= pad;
+  max += pad;
+  const x = (index: number) => 10 + index * (300 / Math.max(1, points.length - 1));
+  const y = (value: number) => 98 - ((value - min) / (max - min)) * 82;
+
+  if (settings.chartType === "waterfall") {
+    drawWaterfall(svg, points, x, y, settings);
+  } else if (settings.chartType === "variance") {
+    drawVariance(svg, points, x, y, settings);
+  } else {
+    const comparisonKey = getTrendComparisonKey(points);
+    const comparisonPath = comparisonKey ? linePath(points, comparisonKey, x, y) : "";
+    if (comparisonPath) svg.append(svgPath(comparisonPath, settings.comparisonColor, "none", Math.max(1, settings.chartLineWidth * 0.75)));
+    const actualPath = linePath(points, "actual", x, y);
+    if (settings.chartType === "area" && actualPath) {
+      const lastX = x(points.length - 1);
+      const baseY = Math.min(110, Math.max(8, y(0)));
+      const area = `${actualPath} L ${lastX} ${baseY} L ${x(0)} ${baseY} Z`;
+      const diff = (lastNumber(points, "actual") ?? 0) - (lastNumber(points, "plan") ?? lastNumber(points, "previous") ?? 0);
+      const good = (settings.invertNegative ? -diff : diff) >= 0;
+      svg.append(svgPath(area, "none", good ? settings.goodColor : settings.badColor, 0, 0.86));
+    }
+    if (actualPath) svg.append(svgPath(actualPath, settings.actualColor, "none", settings.chartLineWidth));
+    if (settings.chartType === "line") {
+      points.forEach((point, index) => {
+        if (point.actual == null) return;
+        const comparison = point.plan ?? point.previous;
+        const diff = comparison == null ? 0 : point.actual - comparison;
+        const good = (settings.invertNegative ? -diff : diff) >= 0;
+        const dot = document.createElementNS(SVG_NS, "circle");
+        dot.setAttribute("cx", String(x(index)));
+        dot.setAttribute("cy", String(y(point.actual)));
+        dot.setAttribute("r", index === points.length - 1 ? "4" : "2.5");
+        dot.setAttribute("fill", good ? settings.goodColor : settings.badColor);
+        svg.append(dot);
+      });
+    }
+  }
+  if (settings.showAxisLabels) addAxisLabels(svg, points, settings);
+  return svg;
+}
+
+function drawWaterfall(svg: SVGSVGElement, points: TrendPoint[], x: (i: number) => number, y: (v: number) => number, settings: CardSettings): void {
+  const actuals = points.map(point => point.actual).filter(isNumber);
+  const barWidth = Math.max(5, Math.min(24, 240 / Math.max(1, actuals.length)));
+  actuals.forEach((value, index) => {
+    const previous = index ? actuals[index - 1] : 0;
+    const top = Math.min(y(value), y(previous));
+    const height = Math.max(2, Math.abs(y(value) - y(previous)));
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", String(x(index) - barWidth / 2));
+    rect.setAttribute("y", String(top));
+    rect.setAttribute("width", String(barWidth));
+    rect.setAttribute("height", String(height));
+    rect.setAttribute("fill", value - previous >= 0 ? settings.goodColor : settings.badColor);
+    svg.append(rect);
+    if (index < actuals.length - 1) {
+      const connector = document.createElementNS(SVG_NS, "line");
+      connector.setAttribute("x1", String(x(index) + barWidth / 2));
+      connector.setAttribute("x2", String(x(index + 1) - barWidth / 2));
+      connector.setAttribute("y1", String(y(value)));
+      connector.setAttribute("y2", String(y(value)));
+      connector.setAttribute("stroke", settings.comparisonColor);
+      connector.setAttribute("stroke-dasharray", "2 2");
+      svg.append(connector);
+    }
+  });
+}
+
+function drawVariance(svg: SVGSVGElement, points: TrendPoint[], x: (i: number) => number, y: (v: number) => number, settings: CardSettings): void {
+  const baseline = Math.min(108, Math.max(10, y(0)));
+  points.forEach((point, index) => {
+    if (point.actual == null) return;
+    const compare = point.plan ?? point.previous ?? 0;
+    const diff = point.actual - compare;
+    const good = (settings.invertNegative ? -diff : diff) >= 0;
+    const width = Math.max(5, 240 / Math.max(1, points.length) - 4);
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", String(x(index) - width / 2));
+    rect.setAttribute("y", String(Math.min(y(diff), baseline)));
+    rect.setAttribute("width", String(width));
+    rect.setAttribute("height", String(Math.max(2, Math.abs(y(diff) - baseline))));
+    rect.setAttribute("fill", good ? settings.goodColor : settings.badColor);
+    svg.append(rect);
+  });
+}
+
+function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan", x: (i: number) => number, y: (v: number) => number): string {
+  let path = "";
+  points.forEach((point, index) => {
+    const value = point[key];
+    if (value == null) return;
+    path += `${path ? " L" : "M"} ${x(index)} ${y(value)}`;
+  });
+  return path;
+}
+
+export function getTrendComparisonKey(points: TrendPoint[]): "plan" | null {
+  return points.some(point => point.plan != null) ? "plan" : null;
+}
+
+function svgPath(d: string, stroke: string, fill: string, width: number, opacity = 1): SVGPathElement {
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("stroke", stroke);
+  path.setAttribute("fill", fill);
+  path.setAttribute("stroke-width", String(width));
+  path.setAttribute("vector-effect", "non-scaling-stroke");
+  path.setAttribute("opacity", String(opacity));
+  return path;
+}
+
+function addAxisLabels(svg: SVGSVGElement, points: TrendPoint[], settings: CardSettings): void {
+  [0, points.length - 1].forEach(index => {
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("x", index === 0 ? "7" : "313");
+    label.setAttribute("y", "116");
+    label.setAttribute("text-anchor", index === 0 ? "start" : "end");
+    label.setAttribute("font-size", String(settings.axisFontSize));
+    label.setAttribute("fill", settings.axisColor);
+    label.textContent = points[index]?.category ?? "";
+    svg.append(label);
+  });
+}
+
+function lastNumber(points: TrendPoint[], key: keyof TrendPoint): number | null {
+  for (let i = points.length - 1; i >= 0; i--) {
+    const value = points[i][key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+export function formatValue(value: number | null, format = "", forceCompact = false): string {
+  if (value == null || !Number.isFinite(value)) return "–";
+  const currency = format.includes("€") ? "€" : format.includes("£") ? "£" : format.includes("¥") || format.includes("￥") ? "¥" : format.includes("$") ? "$" : "";
+  if (format.includes("%") && Math.abs(value) <= 10) return `${(value * 100).toFixed(Math.abs(value) < 0.1 ? 1 : 0)}%`;
+  const abs = Math.abs(value);
+  const compact = forceCompact || abs >= 1000;
+  const units = compact ? (abs >= 1e9 ? [1e9, "B"] : abs >= 1e6 ? [1e6, "M"] : abs >= 1e3 ? [1e3, "K"] : [1, ""]) : [1, ""];
+  const scaled = value / (units[0] as number);
+  const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+  return `${currency}${scaled.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: digits })}${units[1]}`;
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function strong(text: string): HTMLElement {
+  const element = document.createElement("strong");
+  element.textContent = text;
+  return element;
+}
+
+function toolbarButton(text: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.textContent = text;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+function actionButton(text: string, label: string, className: string): HTMLButtonElement {
+  const button = toolbarButton(text, label);
+  button.className = className;
+  return button;
+}

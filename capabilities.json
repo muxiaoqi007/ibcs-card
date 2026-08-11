@@ -1,0 +1,141 @@
+{
+  "dataRoles": [
+    { "displayName": "趋势类别", "name": "trend", "kind": "Grouping" },
+    { "displayName": "指标分组", "name": "group", "kind": "Grouping" },
+    { "displayName": "实际值", "name": "values", "kind": "Measure" },
+    { "displayName": "去年同期", "name": "previousYear", "kind": "Measure" },
+    { "displayName": "计划", "name": "plan", "kind": "Measure" },
+    { "displayName": "预测", "name": "forecast", "kind": "Measure" },
+    { "displayName": "工具提示", "name": "tooltips", "kind": "GroupingOrMeasure" },
+    { "displayName": "备注", "name": "comments", "kind": "GroupingOrMeasure" }
+  ],
+  "dataViewMappings": [
+    {
+      "conditions": [
+        {
+          "trend": { "max": 1 },
+          "group": { "max": 1 },
+          "values": { "min": 1, "max": 4 },
+          "previousYear": { "max": 1 },
+          "plan": { "max": 1 },
+          "forecast": { "max": 1 },
+          "tooltips": { "max": 4 },
+          "comments": { "max": 1 }
+        }
+      ],
+      "categorical": {
+        "categories": {
+          "select": [
+            { "for": { "in": "group" } },
+            { "for": { "in": "trend" } },
+            { "for": { "in": "comments" } },
+            { "for": { "in": "tooltips" } }
+          ],
+          "dataReductionAlgorithm": { "window": { "count": 30000 } }
+        },
+        "values": {
+          "select": [
+            { "bind": { "to": "values" } },
+            { "bind": { "to": "previousYear" } },
+            { "bind": { "to": "plan" } },
+            { "bind": { "to": "forecast" } },
+            { "bind": { "to": "tooltips" } },
+            { "bind": { "to": "comments" } }
+          ]
+        }
+      }
+    }
+  ],
+  "objects": {
+    "general": {
+      "displayName": "常规",
+      "properties": {
+        "layout": { "displayName": "布局方式", "type": { "enumeration": [{ "displayName": "卡片", "value": "grid" }, { "displayName": "行", "value": "row" }] } },
+        "maxCardsInRow": { "displayName": "每行最多卡片数", "type": { "numeric": true } },
+        "scaleCharts": { "displayName": "统一趋势图刻度", "type": { "bool": true } },
+        "valueMode": { "displayName": "主值计算方式", "type": { "enumeration": [{ "displayName": "最新值", "value": "latest" }, { "displayName": "合计", "value": "sum" }] } },
+        "sortMode": { "displayName": "卡片排序", "type": { "enumeration": [{ "displayName": "主值降序", "value": "valueDesc" }, { "displayName": "主值升序", "value": "valueAsc" }, { "displayName": "差异降序", "value": "varianceDesc" }, { "displayName": "差异升序", "value": "varianceAsc" }, { "displayName": "标题升序", "value": "titleAsc" }, { "displayName": "标题降序", "value": "titleDesc" }, { "displayName": "原始数据顺序", "value": "original" }] } }
+      }
+    },
+    "card": {
+      "displayName": "卡片",
+      "properties": {
+        "showVariance": { "displayName": "差异显示", "type": { "enumeration": [{ "displayName": "同时显示", "value": "both" }, { "displayName": "相对差异", "value": "relative" }, { "displayName": "绝对差异", "value": "absolute" }, { "displayName": "不显示", "value": "none" }] } },
+        "chartType": { "displayName": "图表类型", "type": { "enumeration": [{ "displayName": "面积图", "value": "area" }, { "displayName": "折线图", "value": "line" }, { "displayName": "瀑布图", "value": "waterfall" }, { "displayName": "差异图", "value": "variance" }] } },
+        "valueAlignment": { "displayName": "主值对齐", "type": { "enumeration": [{ "displayName": "左对齐", "value": "left" }, { "displayName": "居中", "value": "center" }, { "displayName": "右对齐", "value": "right" }] } },
+        "variancePosition": { "displayName": "差异值位置", "type": { "enumeration": [{ "displayName": "主值右侧", "value": "right" }, { "displayName": "主值下方", "value": "below" }] } },
+        "suppressChart": { "displayName": "隐藏趋势图", "type": { "bool": true } },
+        "wrapTitle": { "displayName": "卡片标题换行", "type": { "bool": true } },
+        "invertNegative": { "displayName": "反转指标含义", "type": { "bool": true } }
+      }
+    },
+    "style": {
+      "displayName": "卡片样式",
+      "properties": {
+        "cardStyle": { "displayName": "卡片样式", "type": { "enumeration": [{ "displayName": "阴影", "value": "shadow" }, { "displayName": "边框", "value": "outlined" }, { "displayName": "扁平", "value": "flat" }] } },
+        "fontFamily": { "displayName": "字体", "type": { "text": true } },
+        "spacing": { "displayName": "卡片间距", "type": { "numeric": true } },
+        "showToolbar": { "displayName": "显示悬浮工具栏", "type": { "bool": true } },
+        "goodColor": { "displayName": "正向颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "badColor": { "displayName": "负向颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "actualColor": { "displayName": "实际值颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "comparisonColor": { "displayName": "对比线颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "cardBackgroundColor": { "displayName": "卡片背景", "type": { "fill": { "solid": { "color": true } } } },
+        "cardBorderColor": { "displayName": "卡片边框", "type": { "fill": { "solid": { "color": true } } } },
+        "cardBorderWidth": { "displayName": "边框宽度", "type": { "numeric": true } },
+        "cardCornerRadius": { "displayName": "圆角", "type": { "numeric": true } }
+      }
+    },
+    "titleStyle": {
+      "displayName": "标题",
+      "properties": {
+        "showTitle": { "displayName": "显示标题", "type": { "bool": true } },
+        "titleFontSize": { "displayName": "字号", "type": { "numeric": true } },
+        "titleColor": { "displayName": "颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "titleBold": { "displayName": "加粗", "type": { "bool": true } }
+      }
+    },
+    "valueStyle": {
+      "displayName": "主值",
+      "properties": {
+        "showValue": { "displayName": "显示主值", "type": { "bool": true } },
+        "valueFontSize": { "displayName": "字号", "type": { "numeric": true } },
+        "valueColor": { "displayName": "颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "valueBold": { "displayName": "加粗", "type": { "bool": true } }
+      }
+    },
+    "varianceStyle": {
+      "displayName": "差异",
+      "properties": {
+        "varianceFontSize": { "displayName": "字号", "type": { "numeric": true } },
+        "varianceLabelColor": { "displayName": "对比标签颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "commentColor": { "displayName": "备注标记颜色", "type": { "fill": { "solid": { "color": true } } } }
+      }
+    },
+    "trendStyle": {
+      "displayName": "趋势图",
+      "properties": {
+        "chartHeight": { "displayName": "高度", "type": { "numeric": true } },
+        "chartLineWidth": { "displayName": "线宽", "type": { "numeric": true } },
+        "showAxisLabels": { "displayName": "显示坐标轴标签", "type": { "bool": true } },
+        "axisFontSize": { "displayName": "坐标轴标签字号", "type": { "numeric": true } },
+        "axisColor": { "displayName": "坐标轴标签颜色", "type": { "fill": { "solid": { "color": true } } } }
+      }
+    },
+    "selectionStyle": {
+      "displayName": "选中状态",
+      "properties": {
+        "selectedBorderColor": { "displayName": "选中边框颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "selectedBackgroundColor": { "displayName": "选中背景颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "selectedBorderWidth": { "displayName": "选中边框宽度", "type": { "numeric": true } },
+        "dimUnselected": { "displayName": "淡化未选中卡片", "type": { "bool": true } },
+        "unselectedOpacity": { "displayName": "未选中卡片透明度（%）", "type": { "numeric": true } }
+      }
+    }
+  },
+  "supportsHighlight": true,
+  "supportsLandingPage": true,
+  "supportsEmptyDataView": true,
+  "supportsKeyboardFocus": true,
+  "privileges": []
+}

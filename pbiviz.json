@@ -1,0 +1,25 @@
+{
+  "visual": {
+    "name": "ibcsCard",
+    "displayName": "IBCS Card",
+    "guid": "IBCSCardA87F399640BA4E21A0D375E0D3C95C79",
+    "visualClassName": "Visual",
+    "version": "1.0.7.0",
+    "description": "Responsive KPI cards with comparisons, variance indicators and integrated micro charts.",
+    "supportUrl": "https://github.com/muxiaoqi007/ibcs-card/issues",
+    "gitHubUrl": "https://github.com/muxiaoqi007/ibcs-card"
+  },
+  "apiVersion": "5.11.0",
+  "author": {
+    "name": "muxiaoqi007",
+    "email": "muxiaoqi007@users.noreply.github.com"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": [],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "dependencies": null,
+  "stringResources": []
+}

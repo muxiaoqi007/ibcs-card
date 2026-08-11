@@ -1,0 +1,25 @@
+{
+  "name": "ibcs-card",
+  "version": "1.0.7",
+  "private": true,
+  "description": "An IBCS-inspired multi-KPI card visual for Microsoft Power BI.",
+  "scripts": {
+    "start": "pbiviz start",
+    "package": "pbiviz package",
+    "demo": "vite --host 127.0.0.1",
+    "demo:build": "vite build",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "powerbi-visuals-api": "^5.11.1",
+    "powerbi-visuals-utils-formattingmodel": "^6.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "less": "^4.8.1",
+    "powerbi-visuals-tools": "^7.2.1",
+    "sharp": "^0.35.3",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.1"
+  }
+}

@@ -1,0 +1,136 @@
+* { box-sizing: border-box; }
+
+.ibcs-visual {
+  --good: #62c900;
+  --bad: #ee2b2b;
+  --actual: #2f2f2f;
+  --comparison: #9b9b9b;
+  --gap: 8px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  color: #303030;
+  background: #f4f4f4;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+button { font-family: inherit; }
+
+.cards-container {
+  display: grid;
+  gap: var(--gap);
+  min-height: 100%;
+  padding: var(--gap);
+  align-content: start;
+}
+
+.cards-container.layout-grid { grid-template-columns: repeat(var(--columns), minmax(150px, 1fr)); }
+.cards-container.layout-row { grid-template-columns: 1fr; }
+
+.kpi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 164px;
+  padding: 11px 12px 8px;
+  overflow: hidden;
+  border: var(--card-border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  outline: none;
+  transition: box-shadow 140ms ease, transform 140ms ease, opacity 140ms ease;
+}
+
+.style-shadow { box-shadow: 0 1px 5px rgba(0, 0, 0, .14); }
+.style-outlined, .style-flat { box-shadow: none; }
+.kpi-card:hover, .kpi-card:focus-visible { z-index: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
+.kpi-card.dragging { opacity: .45; transform: scale(.985); }
+.kpi-card.is-selected { z-index: 2; border-color: var(--selected-border); background: var(--selected-bg); outline: var(--selected-width) solid var(--selected-border); outline-offset: calc(-1 * var(--selected-width)); }
+.kpi-card.is-dimmed { opacity: var(--unselected-opacity); }
+
+.kpi-card header { display: flex; align-items: flex-start; justify-content: space-between; min-height: 20px; gap: 6px; }
+.card-title { min-width: 0; overflow: hidden; color: var(--title-color); font-size: var(--title-size); font-weight: var(--title-weight); text-overflow: ellipsis; white-space: nowrap; }
+.card-title.wrap { white-space: normal; }
+.card-actions { display: flex; gap: 1px; margin: -7px -8px 0 0; opacity: 0; transform: translateY(-2px); transition: opacity 120ms ease, transform 120ms ease; }
+.kpi-card:hover .card-actions, .kpi-card:focus-within .card-actions, .is-focused .card-actions { opacity: 1; transform: none; }
+.card-actions button, .focus-close, .visual-toolbar button { display: grid; place-items: center; border: 0; color: #555; background: transparent; cursor: pointer; }
+.card-actions button { width: 25px; height: 25px; border-radius: 2px; font-size: 12px; }
+.card-actions button:hover { background: #ededed; }
+.card-actions .comment-button { color: var(--comment-color); font-size: 10px; }
+
+.metrics { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; min-height: 51px; }
+.align-left .metrics { justify-content: flex-start; }
+.align-center .metrics { justify-content: center; }
+.align-right .metrics { justify-content: flex-end; }
+.variance-below .headline { flex-basis: 100%; }
+.variance-below.align-left .headline { text-align: left; }
+.variance-below.align-center .headline { text-align: center; }
+.variance-below.align-right .headline { text-align: right; }
+.headline { color: var(--value-color); font-size: var(--value-size); font-weight: var(--value-weight); letter-spacing: -.8px; white-space: nowrap; }
+.variance { display: flex; align-items: center; gap: 3px; color: var(--good); font-size: var(--variance-size); font-weight: 700; white-space: nowrap; }
+.variance.negative { color: var(--bad); }
+.variance-icon { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; color: #fff; background: currentColor; font-size: 10px; line-height: 1; }
+.variance-icon::first-letter { color: #fff; }
+.variance em { color: var(--variance-label); font-size: .92em; font-style: normal; font-weight: 400; }
+.variance-separator { margin: 0 3px; color: #b1b1b1; font-weight: 400; }
+.variance.compact { font-size: calc(var(--variance-size) * .92); }
+.variance.compact .variance-icon { width: 7px; height: 7px; color: currentColor; font-size: 0; }
+
+.secondary-values { display: flex; gap: 10px; margin: -2px 0 3px; overflow: hidden; color: #555; font-size: 10px; white-space: nowrap; }
+.secondary-values strong { color: #888; font-weight: 600; }
+.microchart { display: block; width: 100%; height: var(--chart-height); min-height: var(--chart-height); margin-top: auto; overflow: visible; }
+.no-chart { justify-content: center; min-height: 120px; }
+.no-chart header { position: absolute; top: 11px; right: 12px; left: 12px; }
+
+.layout-row .kpi-card { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(180px, .9fr) minmax(220px, 1.6fr); align-items: center; min-height: 80px; padding: 8px 12px; }
+.layout-row .kpi-card header { grid-column: 1; grid-row: 1; align-items: center; }
+.layout-row .metrics { grid-column: 2; grid-row: 1; min-height: 0; }
+.layout-row .secondary-values { display: none; }
+.layout-row .microchart { grid-column: 3; grid-row: 1; height: var(--chart-height); min-height: 0; margin: 0; }
+.layout-row .no-chart { grid-template-columns: 1fr 1fr; min-height: 64px; }
+.layout-row .no-chart header { position: static; }
+
+.visual-toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; height: 0; color: #555; }
+.toolbar-handle { position: absolute; top: 0; display: grid; place-items: center; width: 34px; height: 12px; border-radius: 0 0 4px 4px; background: rgba(255, 255, 255, .96); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); font-size: 11px; }
+.toolbar-panel { position: absolute; top: 10px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid #d7d7d7; border-radius: 3px; opacity: 0; background: rgba(255, 255, 255, .98); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transform: translateY(-5px); pointer-events: none; transition: 130ms ease; }
+.visual-toolbar:hover .toolbar-panel, .visual-toolbar:focus-within .toolbar-panel { opacity: 1; transform: none; pointer-events: auto; }
+.visual-toolbar button { width: 28px; height: 26px; border-radius: 2px; font-size: 17px; }
+.visual-toolbar button:hover, .visual-toolbar button.active { color: #111; background: #e8e8e8; }
+.visual-toolbar button.active { box-shadow: inset 0 -2px 0 #f3b800; }
+.toolbar-divider { width: 1px; height: 19px; margin: 0 2px; background: #ddd; }
+
+.focus-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 22px; background: rgba(25, 25, 25, .58); }
+.focus-panel { position: relative; display: grid; grid-template-columns: minmax(0, 3fr) minmax(180px, 1fr); width: min(940px, 96vw); height: min(570px, 92vh); overflow: hidden; background: #fff; box-shadow: 0 15px 60px rgba(0, 0, 0, .35); }
+.focus-panel .is-focused { min-height: 100%; padding: 26px 30px 22px; border: 0; box-shadow: none; }
+.focus-panel .is-focused .headline { font-size: max(var(--value-size), 44px); }
+.focus-panel .is-focused .metrics { min-height: 96px; }
+.focus-panel .is-focused .microchart { min-height: max(var(--chart-height), 250px); }
+.focus-close { position: absolute; top: 8px; right: 9px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; background: #f2f2f2; font-size: 24px; }
+.focus-comment { padding: 58px 24px 24px; border-left: 1px solid #e2e2e2; color: #555; background: #fafafa; }
+.focus-comment strong { color: #222; font-size: 15px; }
+.focus-comment p { line-height: 1.55; }
+
+.landing { display: grid; place-items: center; align-content: center; width: 100%; height: 100%; min-height: 260px; padding: 34px; color: #555; text-align: center; background: #fff; }
+.landing h2 { margin: 13px 0 4px; color: #252525; font-size: 22px; }
+.landing p { margin: 0 0 7px; font-size: 14px; }
+.landing small { color: #8a8a8a; }
+.landing-mark { display: flex; align-items: flex-end; gap: 4px; width: 47px; height: 36px; padding: 5px; border: 2px solid #333; }
+.landing-mark span { flex: 1; background: #333; }
+.landing-mark span:nth-child(1) { height: 35%; }
+.landing-mark span:nth-child(2) { height: 82%; background: var(--good); }
+.landing-mark span:nth-child(3) { height: 58%; }
+
+@media (max-width: 700px) {
+  .cards-container.layout-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+  .layout-row .kpi-card { grid-template-columns: minmax(110px, 1fr) minmax(145px, 1fr); }
+  .layout-row .microchart { display: none; }
+  .focus-panel { grid-template-columns: 1fr; }
+  .focus-comment { display: none; }
+}
+
+@media (max-width: 360px) {
+  .cards-container.layout-grid { grid-template-columns: 1fr; }
+}
