@@ -12,6 +12,21 @@ function selectionKey(selectionId: unknown): string | undefined {
   }
 }
 
+function selectionMatches(active: unknown, candidate: unknown): boolean {
+  const activeKey = selectionKey(active);
+  const candidateKey = selectionKey(candidate);
+  if (activeKey != null && activeKey === candidateKey) return true;
+  const left = active as { includes?: (other: unknown, ignoreHighlight?: boolean) => boolean } | undefined;
+  const right = candidate as { includes?: (other: unknown, ignoreHighlight?: boolean) => boolean } | undefined;
+  try {
+    if (typeof left?.includes === "function" && left.includes(candidate, true)) return true;
+    if (typeof right?.includes === "function" && right.includes(active, true)) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 type RendererCallbacks = {
   onSelect?: (card: KpiCard, multi: boolean, isSelected: boolean) => void;
   onClearSelection?: () => void;
@@ -33,12 +48,11 @@ export class CardsRenderer {
   }
 
   public syncSelection(selectionIds: unknown[]): void {
-    const activeIds = new Set(selectionIds.map(selectionKey).filter((key): key is string => Boolean(key)));
     this.selectedKeys = new Set(
       this.cards
         .filter(card => {
-          const key = selectionKey(card.selectionId);
-          return key != null && activeIds.has(key);
+          const cardIds = card.selectionIds?.length ? card.selectionIds : [card.selectionId];
+          return cardIds.some(cardId => cardId != null && selectionIds.some(activeId => selectionMatches(activeId, cardId)));
         })
         .map(card => card.key)
     );

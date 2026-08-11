@@ -73,6 +73,7 @@ export interface KpiCard {
   secondary: Array<{ label: string; value: number | null; format?: string }>;
   comment?: string;
   selectionId?: unknown;
+  selectionIds?: unknown[];
 }
 
 export const DEFAULT_SETTINGS: CardSettings = {

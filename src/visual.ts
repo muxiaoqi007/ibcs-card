@@ -29,12 +29,13 @@ export class Visual implements IVisual {
     this.selectionManager = this.host.createSelectionManager();
     this.renderer = new CardsRenderer(options.element, {
       onSelect: (card, multi, isSelected) => {
-        const selectionId = card.selectionId as powerbi.visuals.ISelectionId | undefined;
-        if (!selectionId) return;
+        const selectionIds = (card.selectionIds?.length ? card.selectionIds : [card.selectionId])
+          .filter((id): id is powerbi.visuals.ISelectionId => Boolean(id));
+        if (!selectionIds.length) return;
         if (isSelected && !multi) {
           void this.selectionManager.clear().then(() => this.renderer.syncSelection([]));
         } else {
-          void this.selectionManager.select(selectionId, multi).then(ids => this.renderer.syncSelection(ids));
+          void this.selectionManager.select(selectionIds, multi).then(ids => this.renderer.syncSelection(ids));
         }
       },
       onClearSelection: () => {
@@ -116,15 +117,18 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
   });
 
   return [...groups.entries()].map(([title, indices]) => {
-    let selectionId: powerbi.visuals.ISelectionId | undefined;
-    try {
-      selectionId = host.createSelectionIdBuilder().withCategory(groupColumn, indices[0]).createSelectionId();
-    } catch { selectionId = undefined; }
-    return buildCard(title, actualColumns[0], indices, trendColumn, previousColumn, planColumn, forecastColumn, commentCategory, commentValue, tooltipCategory, tooltipValues, actualColumns.slice(1), settings, selectionId);
+    const selectionIds: powerbi.visuals.ISelectionId[] = [];
+    for (const index of indices) {
+      try {
+        const selectionId = host.createSelectionIdBuilder().withCategory(groupColumn, index).createSelectionId();
+        if (!selectionIds.some(existing => existing.getKey() === selectionId.getKey())) selectionIds.push(selectionId);
+      } catch { /* Ignore unavailable identities. */ }
+    }
+    return buildCard(title, actualColumns[0], indices, trendColumn, previousColumn, planColumn, forecastColumn, commentCategory, commentValue, tooltipCategory, tooltipValues, actualColumns.slice(1), settings, selectionIds[0], selectionIds);
   });
 }
 
-function buildCard(title: string, actualColumn: DataViewValueColumn, indices: number[], trendColumn: DataViewCategoryColumn | undefined, previousColumn: DataViewValueColumn | undefined, planColumn: DataViewValueColumn | undefined, forecastColumn: DataViewValueColumn | undefined, commentCategory: DataViewCategoryColumn | undefined, commentValue: DataViewValueColumn | undefined, tooltipCategory: DataViewCategoryColumn | undefined, tooltipValues: DataViewValueColumn[], secondaryColumns: DataViewValueColumn[], settings: CardSettings, selectionId: unknown): KpiCard {
+function buildCard(title: string, actualColumn: DataViewValueColumn, indices: number[], trendColumn: DataViewCategoryColumn | undefined, previousColumn: DataViewValueColumn | undefined, planColumn: DataViewValueColumn | undefined, forecastColumn: DataViewValueColumn | undefined, commentCategory: DataViewCategoryColumn | undefined, commentValue: DataViewValueColumn | undefined, tooltipCategory: DataViewCategoryColumn | undefined, tooltipValues: DataViewValueColumn[], secondaryColumns: DataViewValueColumn[], settings: CardSettings, selectionId: unknown, selectionIds: unknown[] = selectionId ? [selectionId] : []): KpiCard {
   const points: TrendPoint[] = indices.map((index, pointIndex) => ({
     category: formatCategory(trendColumn?.values[index], pointIndex + 1),
     actual: numeric(actualColumn.values[index]),
@@ -152,7 +156,8 @@ function buildCard(title: string, actualColumn: DataViewValueColumn, indices: nu
     points,
     secondary: secondaryColumns.map(column => ({ label: String(column.source.displayName), value: aggregate(column), format: column.source.format })),
     comment: latestComment,
-    selectionId
+    selectionId,
+    selectionIds
   };
 }
 

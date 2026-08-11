@@ -21,16 +21,26 @@ const dataView = {
   }
 } as never;
 
-const selectionId = { key: "selection" };
 const host = {
-  createSelectionIdBuilder: () => ({
-    withCategory: () => ({ createSelectionId: () => selectionId })
-  })
+  createSelectionIdBuilder: () => {
+    let index = -1;
+    const builder = {
+      withCategory: (_column: unknown, rowIndex: number) => {
+        index = rowIndex;
+        return builder;
+      },
+      createSelectionId: () => ({ getKey: () => `selection-${index}` })
+    };
+    return builder;
+  }
 } as never;
 
 const cards = transformData(dataView, host, DEFAULT_SETTINGS);
 if (cards.length !== 2 || cards.some(card => card.points.length !== 2)) {
   throw new Error(`Trend transformation failed: ${cards.map(card => `${card.title}:${card.points.length}`).join(", ")}`);
+}
+if (cards.some(card => card.selectionIds?.length !== 2)) {
+  throw new Error("Each grouped card must retain all trend-row selection identities.");
 }
 if (cards[0].points.some(point => point.category.includes("T"))) {
   throw new Error("ISO trend categories were not formatted as readable dates.");
