@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "../src/model";
-import { getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
+import { applyTopN, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
 import { transformData } from "../src/visual";
 
 const groupSource = { displayName: "省份", roles: { group: true } };
@@ -84,4 +84,12 @@ if (sumCard.value !== 210 || sumCard.highlightedValue !== 55) {
   throw new Error(`合计模式错误：value=${sumCard.value}, highlight=${sumCard.highlightedValue}`);
 }
 
-console.log("趋势排序、最新有效期间、联动高亮和选择上下文均通过验证。");
+const topN = applyTopN(cards, { topN: 1, topNBy: "value", showOthers: true });
+if (topN.length !== 2 || topN[1].title !== "其他" || topN[1].value !== 110 || topN[1].selectionIds?.length !== 3) {
+  throw new Error(`Top N + 其他汇总错误：${JSON.stringify(topN.map(card => ({ title: card.title, value: card.value, ids: card.selectionIds?.length })))}`);
+}
+if (!getAxisBreak(90, 100, { autoAxisBreak: true, axisBreakThresholdPercent: 20 }) || getAxisBreak(10, 100, { autoAxisBreak: true, axisBreakThresholdPercent: 20 })) {
+  throw new Error("自动断轴判断错误。");
+}
+
+console.log("趋势、联动、Top N、缩放与断轴数据逻辑均通过验证。");

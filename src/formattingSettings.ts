@@ -1,5 +1,5 @@
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
-import { CardSettings, ChartType, DEFAULT_SETTINGS, LayoutMode, SortMode, VarianceMode } from "./model";
+import { CardSettings, ChartType, DEFAULT_SETTINGS, LayoutMode, ScaleMode, SortMode, TopNBy, VarianceMode } from "./model";
 
 class GeneralCardSettings extends formattingSettings.SimpleCard {
   layout = new formattingSettings.AutoDropdown({
@@ -20,6 +20,12 @@ class GeneralCardSettings extends formattingSettings.SimpleCard {
     value: DEFAULT_SETTINGS.scaleCharts
   });
 
+  scaleMode = new formattingSettings.AutoDropdown({
+    name: "scaleMode",
+    displayName: "趋势图缩放方式",
+    value: DEFAULT_SETTINGS.scaleMode
+  });
+
   valueMode = new formattingSettings.AutoDropdown({
     name: "valueMode",
     displayName: "主值计算方式",
@@ -32,9 +38,27 @@ class GeneralCardSettings extends formattingSettings.SimpleCard {
     value: DEFAULT_SETTINGS.sortMode
   });
 
+  topN = new formattingSettings.NumUpDown({
+    name: "topN",
+    displayName: "显示前 N 项（0 为全部）",
+    value: DEFAULT_SETTINGS.topN
+  });
+
+  topNBy = new formattingSettings.AutoDropdown({
+    name: "topNBy",
+    displayName: "前 N 项依据",
+    value: DEFAULT_SETTINGS.topNBy
+  });
+
+  showOthers = new formattingSettings.ToggleSwitch({
+    name: "showOthers",
+    displayName: "汇总其余项为“其他”",
+    value: DEFAULT_SETTINGS.showOthers
+  });
+
   name = "general";
   displayName = "常规";
-  slices = [this.layout, this.maxCardsInRow, this.scaleCharts, this.valueMode, this.sortMode];
+  slices = [this.layout, this.maxCardsInRow, this.scaleCharts, this.scaleMode, this.valueMode, this.sortMode, this.topN, this.topNBy, this.showOthers];
 }
 
 class CardCardSettings extends formattingSettings.SimpleCard {
@@ -220,11 +244,13 @@ class TrendStyleSettings extends formattingSettings.SimpleCard {
   chartHeight = new formattingSettings.NumUpDown({ name: "chartHeight", displayName: "高度", value: DEFAULT_SETTINGS.chartHeight });
   chartLineWidth = new formattingSettings.NumUpDown({ name: "chartLineWidth", displayName: "线宽", value: DEFAULT_SETTINGS.chartLineWidth });
   showAxisLabels = new formattingSettings.ToggleSwitch({ name: "showAxisLabels", displayName: "显示坐标轴标签", value: DEFAULT_SETTINGS.showAxisLabels });
+  autoAxisBreak = new formattingSettings.ToggleSwitch({ name: "autoAxisBreak", displayName: "自动断轴", value: DEFAULT_SETTINGS.autoAxisBreak });
+  axisBreakThresholdPercent = new formattingSettings.NumUpDown({ name: "axisBreakThresholdPercent", displayName: "断轴阈值（%）", value: DEFAULT_SETTINGS.axisBreakThresholdPercent });
   axisFontSize = new formattingSettings.NumUpDown({ name: "axisFontSize", displayName: "坐标轴标签字号", value: DEFAULT_SETTINGS.axisFontSize });
   axisColor = new formattingSettings.ColorPicker({ name: "axisColor", displayName: "坐标轴标签颜色", value: { value: DEFAULT_SETTINGS.axisColor } });
   name = "trendStyle";
   displayName = "趋势图";
-  slices = [this.chartHeight, this.chartLineWidth, this.showAxisLabels, this.axisFontSize, this.axisColor];
+  slices = [this.chartHeight, this.chartLineWidth, this.showAxisLabels, this.autoAxisBreak, this.axisBreakThresholdPercent, this.axisFontSize, this.axisColor];
 }
 
 class SelectionStyleSettings extends formattingSettings.SimpleCard {
@@ -255,8 +281,12 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     layout: model.general.layout.value as LayoutMode,
     maxCardsInRow: clamp(model.general.maxCardsInRow.value, 1, 8),
     scaleCharts: model.general.scaleCharts.value,
+    scaleMode: model.general.scaleCharts.value ? "all" : model.general.scaleMode.value as ScaleMode,
     valueMode: model.general.valueMode.value as "latest" | "sum",
     sortMode: model.general.sortMode.value as SortMode,
+    topN: clamp(model.general.topN.value, 0, 1000),
+    topNBy: model.general.topNBy.value as TopNBy,
+    showOthers: model.general.showOthers.value,
     showVariance: model.card.showVariance.value as VarianceMode,
     chartType: model.card.chartType.value as ChartType,
     valueAlignment: model.card.valueAlignment.value as CardSettings["valueAlignment"],
@@ -294,6 +324,8 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     chartHeight: clamp(model.trendStyle.chartHeight.value, 24, 300),
     chartLineWidth: clamp(model.trendStyle.chartLineWidth.value, 0.5, 12),
     showAxisLabels: model.trendStyle.showAxisLabels.value,
+    autoAxisBreak: model.trendStyle.autoAxisBreak.value,
+    axisBreakThresholdPercent: clamp(model.trendStyle.axisBreakThresholdPercent.value, 1, 100),
     axisFontSize: clamp(model.trendStyle.axisFontSize.value, 6, 30),
     axisColor: model.trendStyle.axisColor.value.value,
     selectedBorderColor: model.selectionStyle.selectedBorderColor.value.value,

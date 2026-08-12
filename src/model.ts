@@ -2,13 +2,19 @@ export type LayoutMode = "grid" | "row";
 export type ChartType = "area" | "line" | "waterfall" | "variance" | "bullet";
 export type VarianceMode = "both" | "relative" | "absolute" | "none";
 export type SortMode = "valueDesc" | "valueAsc" | "varianceDesc" | "varianceAsc" | "titleAsc" | "titleDesc" | "original";
+export type ScaleMode = "independent" | "all" | "group";
+export type TopNBy = "value" | "variance";
 
 export interface CardSettings {
   layout: LayoutMode;
   maxCardsInRow: number;
   scaleCharts: boolean;
+  scaleMode: ScaleMode;
   valueMode: "latest" | "sum";
   sortMode: SortMode;
+  topN: number;
+  topNBy: TopNBy;
+  showOthers: boolean;
   showVariance: VarianceMode;
   chartType: ChartType;
   valueAlignment: "left" | "center" | "right";
@@ -46,6 +52,8 @@ export interface CardSettings {
   chartHeight: number;
   chartLineWidth: number;
   showAxisLabels: boolean;
+  autoAxisBreak: boolean;
+  axisBreakThresholdPercent: number;
   axisFontSize: number;
   axisColor: string;
   selectedBorderColor: string;
@@ -75,6 +83,7 @@ export interface TrendPoint {
 export interface KpiCard {
   key: string;
   title: string;
+  scaleGroup?: string;
   value: number | null;
   previous: number | null;
   plan: number | null;
@@ -87,14 +96,19 @@ export interface KpiCard {
   comment?: string;
   selectionId?: unknown;
   selectionIds?: unknown[];
+  isOthers?: boolean;
 }
 
 export const DEFAULT_SETTINGS: CardSettings = {
   layout: "grid",
   maxCardsInRow: 4,
   scaleCharts: false,
+  scaleMode: "independent",
   valueMode: "latest",
   sortMode: "valueDesc",
+  topN: 0,
+  topNBy: "value",
+  showOthers: true,
   showVariance: "both",
   chartType: "area",
   valueAlignment: "center",
@@ -132,6 +146,8 @@ export const DEFAULT_SETTINGS: CardSettings = {
   chartHeight: 64,
   chartLineWidth: 2.4,
   showAxisLabels: true,
+  autoAxisBreak: false,
+  axisBreakThresholdPercent: 35,
   axisFontSize: 10,
   axisColor: "#666666",
   selectedBorderColor: "#f2c811",

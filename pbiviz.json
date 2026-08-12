@@ -4,7 +4,7 @@
     "displayName": "IBCS Card",
     "guid": "IBCSCardA87F399640BA4E21A0D375E0D3C95C79",
     "visualClassName": "Visual",
-    "version": "1.1.0.0",
+    "version": "1.2.0.0",
     "description": "Responsive KPI cards with comparisons, variance indicators and integrated micro charts.",
     "supportUrl": "https://github.com/muxiaoqi007/ibcs-card/issues",
     "gitHubUrl": "https://github.com/muxiaoqi007/ibcs-card"

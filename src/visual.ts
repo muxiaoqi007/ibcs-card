@@ -67,7 +67,7 @@ export class Visual implements IVisual {
 
   public enumerateObjectInstances(options: powerbi.EnumerateVisualObjectInstancesOptions): powerbi.VisualObjectInstanceEnumeration {
     const selector = {} as powerbi.data.Selector;
-    if (options.objectName === "general") return [{ objectName: "general", selector, properties: { layout: this.settings.layout, maxCardsInRow: this.settings.maxCardsInRow, scaleCharts: this.settings.scaleCharts, valueMode: this.settings.valueMode, sortMode: this.settings.sortMode } }];
+    if (options.objectName === "general") return [{ objectName: "general", selector, properties: { layout: this.settings.layout, maxCardsInRow: this.settings.maxCardsInRow, scaleCharts: this.settings.scaleCharts, scaleMode: this.settings.scaleMode, valueMode: this.settings.valueMode, sortMode: this.settings.sortMode, topN: this.settings.topN, topNBy: this.settings.topNBy, showOthers: this.settings.showOthers } }];
     if (options.objectName === "card") return [{ objectName: "card", selector, properties: { showVariance: this.settings.showVariance, chartType: this.settings.chartType, valueAlignment: this.settings.valueAlignment, variancePosition: this.settings.variancePosition, suppressChart: this.settings.suppressChart, wrapTitle: this.settings.wrapTitle, invertNegative: this.settings.invertNegative, scaleVarianceIcons: this.settings.scaleVarianceIcons, neutralTolerancePercent: this.settings.neutralTolerancePercent } }];
     if (options.objectName === "style") return [{ objectName: "style", selector, properties: { cardStyle: this.settings.cardStyle, fontFamily: this.settings.fontFamily, spacing: this.settings.spacing, showToolbar: this.settings.showToolbar, goodColor: { solid: { color: this.settings.goodColor } }, badColor: { solid: { color: this.settings.badColor } }, neutralColor: { solid: { color: this.settings.neutralColor } }, actualColor: { solid: { color: this.settings.actualColor } }, comparisonColor: { solid: { color: this.settings.comparisonColor } }, forecastColor: { solid: { color: this.settings.forecastColor } } } }];
     return [];
@@ -84,6 +84,7 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
   const categories = categorical.categories ?? [];
   const groupColumn = roleCategory(categories, "group");
   const trendColumn = roleCategory(categories, "trend");
+  const scaleGroupColumn = roleCategory(categories, "scaleGroup");
   const commentCategory = roleCategory(categories, "comments");
   const tooltipCategory = roleCategory(categories, "tooltips");
   const actualColumns = roleValues(categorical, "values");
@@ -111,7 +112,8 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
       settings,
       undefined,
       [],
-      column.values.map((_, index) => createSelectionId(host, [trendColumn], index))
+      column.values.map((_, index) => createSelectionId(host, [trendColumn], index)),
+      scaleGroupColumn ? String(scaleGroupColumn.values[0] ?? column.source.displayName) : String(column.source.displayName)
     ));
   }
 
@@ -131,11 +133,12 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
       } catch { /* Ignore unavailable identities. */ }
     }
     const pointSelectionIds = indices.map(index => createSelectionId(host, [groupColumn, trendColumn], index));
-    return buildCard(title, actualColumns[0], indices, trendColumn, previousColumn, planColumn, forecastColumn, commentCategory, commentValue, tooltipCategory, tooltipValues, actualColumns.slice(1), settings, selectionIds[0], selectionIds, pointSelectionIds);
+    const scaleGroup = scaleGroupColumn ? String(scaleGroupColumn.values[indices[0]] ?? title) : title;
+    return buildCard(title, actualColumns[0], indices, trendColumn, previousColumn, planColumn, forecastColumn, commentCategory, commentValue, tooltipCategory, tooltipValues, actualColumns.slice(1), settings, selectionIds[0], selectionIds, pointSelectionIds, scaleGroup);
   });
 }
 
-function buildCard(title: string, actualColumn: DataViewValueColumn, indices: number[], trendColumn: DataViewCategoryColumn | undefined, previousColumn: DataViewValueColumn | undefined, planColumn: DataViewValueColumn | undefined, forecastColumn: DataViewValueColumn | undefined, commentCategory: DataViewCategoryColumn | undefined, commentValue: DataViewValueColumn | undefined, tooltipCategory: DataViewCategoryColumn | undefined, tooltipValues: DataViewValueColumn[], secondaryColumns: DataViewValueColumn[], settings: CardSettings, selectionId: unknown, selectionIds: unknown[] = selectionId ? [selectionId] : [], pointSelectionIds: Array<unknown | undefined> = []): KpiCard {
+function buildCard(title: string, actualColumn: DataViewValueColumn, indices: number[], trendColumn: DataViewCategoryColumn | undefined, previousColumn: DataViewValueColumn | undefined, planColumn: DataViewValueColumn | undefined, forecastColumn: DataViewValueColumn | undefined, commentCategory: DataViewCategoryColumn | undefined, commentValue: DataViewValueColumn | undefined, tooltipCategory: DataViewCategoryColumn | undefined, tooltipValues: DataViewValueColumn[], secondaryColumns: DataViewValueColumn[], settings: CardSettings, selectionId: unknown, selectionIds: unknown[] = selectionId ? [selectionId] : [], pointSelectionIds: Array<unknown | undefined> = [], scaleGroup = title): KpiCard {
   const points: TrendPoint[] = indices.map((index, pointIndex) => {
     const rawCategory = trendColumn?.values[index];
     return {
@@ -174,6 +177,7 @@ function buildCard(title: string, actualColumn: DataViewValueColumn, indices: nu
   return {
     key: `${title}-${actualColumn.source.queryName ?? actualColumn.source.displayName}`,
     title,
+    scaleGroup,
     value: aggregate(actualColumn, "actual"),
     previous: aggregate(previousColumn, "previous"),
     plan: aggregate(planColumn, "plan"),

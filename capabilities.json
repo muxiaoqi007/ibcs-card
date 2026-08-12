@@ -2,6 +2,7 @@
   "dataRoles": [
     { "displayName": "趋势类别", "name": "trend", "kind": "Grouping" },
     { "displayName": "指标分组", "name": "group", "kind": "Grouping" },
+    { "displayName": "缩放组", "name": "scaleGroup", "kind": "Grouping" },
     { "displayName": "实际值", "name": "values", "kind": "Measure" },
     { "displayName": "去年同期", "name": "previousYear", "kind": "Measure" },
     { "displayName": "计划", "name": "plan", "kind": "Measure" },
@@ -15,6 +16,7 @@
         {
           "trend": { "max": 1 },
           "group": { "max": 1 },
+          "scaleGroup": { "max": 1 },
           "values": { "min": 1, "max": 4 },
           "previousYear": { "max": 1 },
           "plan": { "max": 1 },
@@ -27,6 +29,7 @@
         "categories": {
           "select": [
             { "for": { "in": "group" } },
+            { "for": { "in": "scaleGroup" } },
             { "for": { "in": "trend" } },
             { "for": { "in": "comments" } },
             { "for": { "in": "tooltips" } }
@@ -53,8 +56,12 @@
         "layout": { "displayName": "布局方式", "type": { "enumeration": [{ "displayName": "卡片", "value": "grid" }, { "displayName": "行", "value": "row" }] } },
         "maxCardsInRow": { "displayName": "每行最多卡片数", "type": { "numeric": true } },
         "scaleCharts": { "displayName": "统一趋势图刻度", "type": { "bool": true } },
+        "scaleMode": { "displayName": "趋势图缩放方式", "type": { "enumeration": [{ "displayName": "每张卡片独立", "value": "independent" }, { "displayName": "全部统一", "value": "all" }, { "displayName": "按缩放组统一", "value": "group" }] } },
         "valueMode": { "displayName": "主值计算方式", "type": { "enumeration": [{ "displayName": "最新值", "value": "latest" }, { "displayName": "合计", "value": "sum" }] } },
-        "sortMode": { "displayName": "卡片排序", "type": { "enumeration": [{ "displayName": "主值降序", "value": "valueDesc" }, { "displayName": "主值升序", "value": "valueAsc" }, { "displayName": "差异降序", "value": "varianceDesc" }, { "displayName": "差异升序", "value": "varianceAsc" }, { "displayName": "标题升序", "value": "titleAsc" }, { "displayName": "标题降序", "value": "titleDesc" }, { "displayName": "原始数据顺序", "value": "original" }] } }
+        "sortMode": { "displayName": "卡片排序", "type": { "enumeration": [{ "displayName": "主值降序", "value": "valueDesc" }, { "displayName": "主值升序", "value": "valueAsc" }, { "displayName": "差异降序", "value": "varianceDesc" }, { "displayName": "差异升序", "value": "varianceAsc" }, { "displayName": "标题升序", "value": "titleAsc" }, { "displayName": "标题降序", "value": "titleDesc" }, { "displayName": "原始数据顺序", "value": "original" }] } },
+        "topN": { "displayName": "显示前 N 项（0 为全部）", "type": { "numeric": true } },
+        "topNBy": { "displayName": "前 N 项依据", "type": { "enumeration": [{ "displayName": "主值", "value": "value" }, { "displayName": "差异绝对值", "value": "variance" }] } },
+        "showOthers": { "displayName": "汇总其余项为“其他”", "type": { "bool": true } }
       }
     },
     "card": {
@@ -122,6 +129,8 @@
         "chartHeight": { "displayName": "高度", "type": { "numeric": true } },
         "chartLineWidth": { "displayName": "线宽", "type": { "numeric": true } },
         "showAxisLabels": { "displayName": "显示坐标轴标签", "type": { "bool": true } },
+        "autoAxisBreak": { "displayName": "自动断轴", "type": { "bool": true } },
+        "axisBreakThresholdPercent": { "displayName": "断轴阈值（%）", "type": { "numeric": true } },
         "axisFontSize": { "displayName": "坐标轴标签字号", "type": { "numeric": true } },
         "axisColor": { "displayName": "坐标轴标签颜色", "type": { "fill": { "solid": { "color": true } } } }
       }

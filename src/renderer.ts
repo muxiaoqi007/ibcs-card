@@ -60,7 +60,7 @@ export class CardsRenderer {
   }
 
   render(cards: KpiCard[], settings: CardSettings): void {
-    this.cards = this.sortCards(cards, settings.sortMode);
+    this.cards = applyTopN(this.sortCards(cards, settings.sortMode), settings);
     const availableKeys = new Set(cards.map(card => card.key));
     for (const key of this.selectedKeys) {
       if (!availableKeys.has(key)) this.selectedKeys.delete(key);
@@ -110,14 +110,14 @@ export class CardsRenderer {
       this.render(this.cards, this.settings);
     };
 
-    const extent = this.settings.scaleCharts ? this.getGlobalExtent(this.cards) : null;
+    const extents = this.getChartExtents(this.cards);
     const maxRelativeVariance = this.getMaxRelativeVariance(this.cards);
-    for (const card of this.cards) container.append(this.createCard(card, extent, false, maxRelativeVariance));
+    for (const card of this.cards) container.append(this.createCard(card, extents.get(card.key) ?? null, false, maxRelativeVariance));
     this.root.append(container);
 
     if (this.focusedKey) {
       const focused = this.cards.find(card => card.key === this.focusedKey);
-      if (focused) this.root.append(this.createFocus(focused, extent, maxRelativeVariance));
+      if (focused) this.root.append(this.createFocus(focused, extents.get(focused.key) ?? null, maxRelativeVariance));
     }
   }
 
@@ -386,6 +386,31 @@ export class CardsRenderer {
     return values.length ? [Math.min(...values), Math.max(...values)] : null;
   }
 
+  private getChartExtents(cards: KpiCard[]): Map<string, [number, number] | null> {
+    const result = new Map<string, [number, number] | null>();
+    if (this.settings.scaleMode === "all") {
+      const extent = this.getGlobalExtent(cards);
+      cards.forEach(card => result.set(card.key, extent));
+      return result;
+    }
+    if (this.settings.scaleMode === "group") {
+      const groups = new Map<string, KpiCard[]>();
+      cards.forEach(card => {
+        const groupKey = card.scaleGroup ?? card.title;
+        const members = groups.get(groupKey) ?? [];
+        members.push(card);
+        groups.set(groupKey, members);
+      });
+      groups.forEach(members => {
+        const extent = this.getGlobalExtent(members);
+        members.forEach(card => result.set(card.key, extent));
+      });
+      return result;
+    }
+    cards.forEach(card => result.set(card.key, null));
+    return result;
+  }
+
   private getMaxRelativeVariance(cards: KpiCard[]): number {
     return Math.max(0, ...cards.map(card => {
       const reference = card.plan ?? card.previous;
@@ -405,6 +430,8 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
   if (!values.length) return svg;
   let min = extent?.[0] ?? Math.min(...values);
   let max = extent?.[1] ?? Math.max(...values);
+  const axisBreak = getAxisBreak(min, max, settings);
+  if (axisBreak) min = axisBreak.min;
   if (max === min) { max += 1; min -= 1; }
   const pad = (max - min) * 0.08;
   min -= pad;
@@ -472,7 +499,26 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
     svg.append(hit);
   });
   if (settings.showAxisLabels) addAxisLabels(svg, points, settings);
+  if (axisBreak) addAxisBreakMark(svg, settings);
   return svg;
+}
+
+function addAxisBreakMark(svg: SVGSVGElement, settings: CardSettings): void {
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", "M 6 91 L 11 86 L 16 91 L 21 86");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", settings.axisColor);
+  path.setAttribute("stroke-width", "1.5");
+  path.setAttribute("vector-effect", "non-scaling-stroke");
+  path.setAttribute("class", "axis-break-mark");
+  svg.append(path);
+}
+
+export function getAxisBreak(min: number, max: number, settings: Pick<CardSettings, "autoAxisBreak" | "axisBreakThresholdPercent">): { min: number } | null {
+  if (!settings.autoAxisBreak || min <= 0 || max <= 0 || max <= min) return null;
+  const spreadPercent = ((max - min) / max) * 100;
+  if (spreadPercent > settings.axisBreakThresholdPercent) return null;
+  return { min: Math.max(0, min - (max - min) * .12) };
 }
 
 function drawWaterfall(svg: SVGSVGElement, points: TrendPoint[], x: (i: number) => number, y: (v: number) => number, settings: CardSettings): void {
@@ -667,4 +713,66 @@ function actionButton(text: string, label: string, className: string): HTMLButto
   const button = toolbarButton(text, label);
   button.className = className;
   return button;
+}
+
+export function applyTopN(cards: KpiCard[], settings: Pick<CardSettings, "topN" | "topNBy" | "showOthers">): KpiCard[] {
+  const limit = Math.floor(settings.topN);
+  if (limit <= 0 || cards.length <= limit) return cards;
+  const score = (card: KpiCard): number => {
+    if (settings.topNBy === "variance") {
+      const reference = card.plan ?? card.previous;
+      return card.value == null || reference == null ? Number.NEGATIVE_INFINITY : Math.abs(card.value - reference);
+    }
+      return card.value == null ? Number.NEGATIVE_INFINITY : card.value;
+  };
+  const ranked = [...cards].sort((a, b) => score(b) - score(a));
+  const kept = ranked.slice(0, limit);
+  const suppressed = ranked.slice(limit);
+  if (!settings.showOthers || !suppressed.length) return kept;
+  return [...kept, aggregateOthers(suppressed)];
+}
+
+function aggregateOthers(cards: KpiCard[]): KpiCard {
+  const sum = (key: "value" | "previous" | "plan" | "forecast" | "highlightedValue"): number | null => {
+    const values = cards.map(card => card[key]).filter(isNumber);
+    return values.length ? values.reduce((total, value) => total + value, 0) : null;
+  };
+  const categories = new Map<string, TrendPoint>();
+  for (const card of cards) {
+    for (const point of card.points) {
+      const existing = categories.get(point.category);
+      if (!existing) {
+        categories.set(point.category, { ...point, selectionId: undefined });
+      } else {
+        existing.actual = addNullable(existing.actual, point.actual);
+        existing.previous = addNullable(existing.previous, point.previous);
+        existing.plan = addNullable(existing.plan, point.plan);
+        existing.forecast = addNullable(existing.forecast, point.forecast);
+        existing.actualHighlight = addNullable(existing.actualHighlight ?? null, point.actualHighlight ?? null);
+      }
+    }
+  }
+  const selectionIds = cards.flatMap(card => card.selectionIds?.length ? card.selectionIds : card.selectionId ? [card.selectionId] : []);
+  return {
+    key: `__others__-${cards.map(card => card.key).join("|")}`,
+    title: "其他",
+    scaleGroup: "其他",
+    value: sum("value"),
+    previous: sum("previous"),
+    plan: sum("plan"),
+    forecast: sum("forecast"),
+    highlightedValue: sum("highlightedValue"),
+    hasHighlights: cards.some(card => card.hasHighlights),
+    format: cards[0]?.format,
+    points: [...categories.values()].sort((a, b) => String(a.sortValue ?? a.category).localeCompare(String(b.sortValue ?? b.category), undefined, { numeric: true })),
+    secondary: [],
+    selectionId: selectionIds[0],
+    selectionIds,
+    isOthers: true
+  };
+}
+
+function addNullable(a: number | null, b: number | null): number | null {
+  if (a == null && b == null) return null;
+  return (a ?? 0) + (b ?? 0);
 }
