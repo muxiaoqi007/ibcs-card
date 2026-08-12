@@ -83,10 +83,27 @@ const sumCard = transformData(dataView, host, { ...DEFAULT_SETTINGS, valueMode: 
 if (sumCard.value !== 210 || sumCard.highlightedValue !== 55) {
   throw new Error(`合计模式错误：value=${sumCard.value}, highlight=${sumCard.highlightedValue}`);
 }
+const sumBullet = getBulletValues(sumCard);
+if (sumBullet.actual !== 210 || sumBullet.previous !== 306 || sumBullet.plan !== 326) {
+  throw new Error(`合计模式下子弹图与卡片口径不一致：${JSON.stringify(sumBullet)}`);
+}
 
 const topN = applyTopN(cards, { topN: 1, topNBy: "value", showOthers: true });
 if (topN.length !== 2 || topN[1].title !== "其他" || topN[1].value !== 110 || topN[1].selectionIds?.length !== 3) {
   throw new Error(`Top N + 其他汇总错误：${JSON.stringify(topN.map(card => ({ title: card.title, value: card.value, ids: card.selectionIds?.length })))}`);
+}
+const repeatedTopN = applyTopN(topN, { topN: 1, topNBy: "value", showOthers: true });
+if (repeatedTopN.length !== 2 || repeatedTopN.filter(card => card.title === "其他").length !== 1 || repeatedTopN[1].value !== 110) {
+  throw new Error(`重复计算 Top N 后出现多个“其他”：${JSON.stringify(repeatedTopN.map(card => ({ title: card.title, value: card.value })))}`);
+}
+const sourceOther = { ...cards[0], key: "source-other", title: "其他", value: 50, isOthers: false };
+const topNWithSourceOther = applyTopN([...cards, sourceOther], { topN: 1, topNBy: "value", showOthers: true });
+if (topNWithSourceOther.length !== 2 || topNWithSourceOther.filter(card => card.title === "其他").length !== 1 || topNWithSourceOther[1].value !== 160) {
+  throw new Error(`源数据中的“其他”没有与 Top N 余项合并：${JSON.stringify(topNWithSourceOther.map(card => ({ title: card.title, value: card.value })))}`);
+}
+const sourceOtherWithoutAggregation = applyTopN([{ ...sourceOther, value: 500 }, ...cards], { topN: 1, topNBy: "value", showOthers: false });
+if (sourceOtherWithoutAggregation.length !== 1 || sourceOtherWithoutAggregation[0].title !== "其他" || sourceOtherWithoutAggregation[0].value !== 500) {
+  throw new Error(`关闭汇总后，源数据中的“其他”没有正常参与 Top N：${JSON.stringify(sourceOtherWithoutAggregation)}`);
 }
 if (!getAxisBreak(90, 100, { autoAxisBreak: true, axisBreakThresholdPercent: 20 }) || getAxisBreak(10, 100, { autoAxisBreak: true, axisBreakThresholdPercent: 20 })) {
   throw new Error("自动断轴判断错误。");

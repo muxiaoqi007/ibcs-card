@@ -38,6 +38,7 @@ export class CardsRenderer {
   private focusedKey: string | null = null;
   private layoutOverride: "grid" | "row" | null = null;
   private root: HTMLElement;
+  private sourceCards: KpiCard[] = [];
   private cards: KpiCard[] = [];
   private selectedKeys = new Set<string>();
   private settings!: CardSettings;
@@ -56,12 +57,13 @@ export class CardsRenderer {
         })
         .map(card => card.key)
     );
-    if (this.settings) this.render(this.cards, this.settings);
+    if (this.settings) this.render(this.sourceCards, this.settings);
   }
 
   render(cards: KpiCard[], settings: CardSettings): void {
+    this.sourceCards = cards;
     this.cards = applyTopN(this.sortCards(cards, settings.sortMode), settings);
-    const availableKeys = new Set(cards.map(card => card.key));
+    const availableKeys = new Set(this.cards.map(card => card.key));
     for (const key of this.selectedKeys) {
       if (!availableKeys.has(key)) this.selectedKeys.delete(key);
     }
@@ -107,7 +109,7 @@ export class CardsRenderer {
       if (event.target !== container || this.selectedKeys.size === 0) return;
       this.selectedKeys.clear();
       this.callbacks.onClearSelection?.();
-      this.render(this.cards, this.settings);
+      this.render(this.sourceCards, this.settings);
     };
 
     const extents = this.getChartExtents(this.cards);
@@ -197,12 +199,12 @@ export class CardsRenderer {
       button.classList.toggle("active", button.dataset.layout === this.settings.layout);
       button.onclick = () => {
         this.layoutOverride = button.dataset.layout as "grid" | "row";
-        this.render(this.cards, this.settings);
+        this.render(this.sourceCards, this.settings);
       };
     });
     const scaleButton = bar.querySelector<HTMLButtonElement>("[data-scale]")!;
     scaleButton.classList.toggle("active", this.settings.scaleCharts);
-    scaleButton.onclick = () => this.render(this.cards, { ...this.settings, scaleCharts: !this.settings.scaleCharts });
+    scaleButton.onclick = () => this.render(this.sourceCards, { ...this.settings, scaleCharts: !this.settings.scaleCharts });
     return bar;
   }
 
@@ -270,7 +272,7 @@ export class CardsRenderer {
     }
 
     if (!this.settings.suppressChart && card.points.length > 1) {
-      const chart = createChart(card.points, this.settings, extent, point => {
+      const chart = createChart(card, this.settings, extent, point => {
         const rect = chart.getBoundingClientRect();
         this.callbacks.onContextMenu?.(card, point, rect.left, rect.bottom);
       });
@@ -292,7 +294,7 @@ export class CardsRenderer {
     article.querySelector<HTMLButtonElement>(".focus-button")!.onclick = event => {
       event.stopPropagation();
       this.focusedKey = card.key;
-      this.render(this.cards, this.settings);
+      this.render(this.sourceCards, this.settings);
     };
     article.querySelector<HTMLButtonElement>(".more-button")!.onclick = event => {
       event.stopPropagation();
@@ -341,7 +343,7 @@ export class CardsRenderer {
     close.setAttribute("aria-label", "关闭聚焦模式");
     close.onclick = () => {
       this.focusedKey = null;
-      this.render(this.cards, this.settings);
+      this.render(this.sourceCards, this.settings);
     };
     panel.append(close, this.createCard(card, extent, true, maxRelativeVariance));
     if (card.comment) {
@@ -377,12 +379,14 @@ export class CardsRenderer {
       const to = this.order.indexOf(target);
       this.order.splice(from, 1);
       this.order.splice(to, 0, source);
-      this.render(this.cards, this.settings);
+      this.render(this.sourceCards, this.settings);
     };
   }
 
   private getGlobalExtent(cards: KpiCard[]): [number, number] | null {
-    const values = cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber));
+    const values = this.settings.chartType === "bullet"
+      ? cards.flatMap(card => [0, card.value, card.previous, card.plan, card.forecast].filter(isNumber))
+      : cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber));
     return values.length ? [Math.min(...values), Math.max(...values)] : null;
   }
 
@@ -420,13 +424,17 @@ export class CardsRenderer {
   }
 }
 
-function createChart(points: TrendPoint[], settings: CardSettings, extent: [number, number] | null, onPointContextMenu?: (point: TrendPoint) => void): SVGSVGElement {
+function createChart(card: KpiCard, settings: CardSettings, extent: [number, number] | null, onPointContextMenu?: (point: TrendPoint) => void): SVGSVGElement {
+  const points = card.points;
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 320 120");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "趋势图");
-  const values = points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber);
+  const bulletValues = getBulletValues(card);
+  const values = settings.chartType === "bullet"
+    ? [0, bulletValues.actual, bulletValues.previous, bulletValues.plan, bulletValues.forecast].filter(isNumber)
+    : points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber);
   if (!values.length) return svg;
   let min = extent?.[0] ?? Math.min(...values);
   let max = extent?.[1] ?? Math.max(...values);
@@ -440,7 +448,7 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
   const y = (value: number) => 98 - ((value - min) / (max - min)) * 82;
 
   if (settings.chartType === "bullet") {
-    drawBullet(svg, points, settings);
+    drawBullet(svg, bulletValues, settings, extent);
   } else if (settings.chartType === "waterfall") {
     drawWaterfall(svg, points, x, y, settings);
   } else if (settings.chartType === "variance") {
@@ -576,12 +584,12 @@ function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan" | "f
   return path;
 }
 
-function drawBullet(svg: SVGSVGElement, points: TrendPoint[], settings: CardSettings): void {
-  const { actual, plan, previous, forecast } = getBulletValues(points);
-  const values = [actual, plan, previous, forecast, 0].filter(isNumber);
-  if (!values.length || actual == null) return;
-  const max = Math.max(...values, 0);
-  const min = Math.min(...values, 0);
+function drawBullet(svg: SVGSVGElement, bulletValues: BulletValues, settings: CardSettings, extent: [number, number] | null): void {
+  const { actual, plan, previous, forecast } = bulletValues;
+  const numericValues = [actual, plan, previous, forecast, 0].filter(isNumber);
+  if (!numericValues.length || actual == null) return;
+  const max = Math.max(...numericValues, extent?.[1] ?? 0, 0);
+  const min = Math.min(...numericValues, extent?.[0] ?? 0, 0);
   const range = max - min || 1;
   const x = (value: number) => 12 + ((value - min) / range) * 296;
   const zero = x(0);
@@ -620,13 +628,18 @@ function drawBullet(svg: SVGSVGElement, points: TrendPoint[], settings: CardSett
   marker(forecast, settings.forecastColor, "6 3");
 }
 
-export function getBulletValues(points: TrendPoint[]): { actual: number | null; plan: number | null; previous: number | null; forecast: number | null } {
-  const actualPoint = [...points].reverse().find(point => point.actual != null);
+type BulletValues = { actual: number | null; plan: number | null; previous: number | null; forecast: number | null };
+
+export function getBulletValues(source: TrendPoint[] | Pick<KpiCard, "value" | "plan" | "previous" | "forecast">): BulletValues {
+  if (!Array.isArray(source)) {
+    return { actual: source.value, plan: source.plan, previous: source.previous, forecast: source.forecast };
+  }
+  const actualPoint = [...source].reverse().find(point => point.actual != null);
   return {
     actual: actualPoint?.actual ?? null,
     plan: actualPoint?.plan ?? null,
     previous: actualPoint?.previous ?? null,
-    forecast: lastNumber(points, "forecast")
+    forecast: lastNumber(source, "forecast")
   };
 }
 
@@ -717,7 +730,7 @@ function actionButton(text: string, label: string, className: string): HTMLButto
 
 export function applyTopN(cards: KpiCard[], settings: Pick<CardSettings, "topN" | "topNBy" | "showOthers">): KpiCard[] {
   const limit = Math.floor(settings.topN);
-  if (limit <= 0 || cards.length <= limit) return cards;
+  if (limit <= 0) return cards;
   const score = (card: KpiCard): number => {
     if (settings.topNBy === "variance") {
       const reference = card.plan ?? card.previous;
@@ -725,11 +738,17 @@ export function applyTopN(cards: KpiCard[], settings: Pick<CardSettings, "topN" 
     }
       return card.value == null ? Number.NEGATIVE_INFINITY : card.value;
   };
-  const ranked = [...cards].sort((a, b) => score(b) - score(a));
+  const isGeneratedOthers = (card: KpiCard): boolean => card.isOthers === true;
+  const isNamedOthers = (card: KpiCard): boolean => card.title.trim() === "其他";
+  const existingOthers = settings.showOthers ? cards.filter(card => isGeneratedOthers(card) || isNamedOthers(card)) : [];
+  const ranked = cards
+    .filter(card => !isGeneratedOthers(card) && (!settings.showOthers || !isNamedOthers(card)))
+    .sort((a, b) => score(b) - score(a));
   const kept = ranked.slice(0, limit);
   const suppressed = ranked.slice(limit);
-  if (!settings.showOthers || !suppressed.length) return kept;
-  return [...kept, aggregateOthers(suppressed)];
+  if (!settings.showOthers) return kept;
+  const others = [...existingOthers, ...suppressed];
+  return others.length ? [...kept, aggregateOthers(others)] : kept;
 }
 
 function aggregateOthers(cards: KpiCard[]): KpiCard {
