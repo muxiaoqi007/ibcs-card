@@ -2,56 +2,72 @@ import { DEFAULT_SETTINGS } from "../src/model";
 import { getTrendComparisonKey } from "../src/renderer";
 import { transformData } from "../src/visual";
 
-const groupSource = { displayName: "Province", roles: { group: true } };
-const trendSource = { displayName: "Date", roles: { trend: true } };
-const actualSource = { displayName: "Sales", queryName: "Sales", roles: { values: true } };
-const previousSource = { displayName: "Sales PY", queryName: "SalesPY", roles: { previousYear: true } };
+const groupSource = { displayName: "省份", roles: { group: true } };
+const trendSource = { displayName: "日期", roles: { trend: true } };
+const actualSource = { displayName: "销售额", queryName: "Sales", roles: { values: true } };
+const previousSource = { displayName: "销售额.PY", queryName: "SalesPY", roles: { previousYear: true } };
+const planSource = { displayName: "计划", queryName: "Plan", roles: { plan: true } };
 
 const dataView = {
-  metadata: { columns: [groupSource, trendSource, actualSource, previousSource] },
+  metadata: { columns: [groupSource, trendSource, actualSource, previousSource, planSource] },
   categorical: {
     categories: [
-      { source: groupSource, values: ["湖北省", "湖北省", "广东省", "广东省"] },
-      { source: trendSource, values: ["2021-01-01T00:00:00.000Z", "2021-02-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z", "2021-02-01T00:00:00.000Z"] }
+      { source: groupSource, values: ["湖北省", "湖北省", "湖北省", "广东省", "广东省"] },
+      { source: trendSource, values: ["2021-02-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z", "2021-03-01T00:00:00.000Z", "2021-02-01T00:00:00.000Z", "2021-01-01T00:00:00.000Z"] }
     ],
     values: [
-      { source: actualSource, values: [100, 110, 90, 120] },
-      { source: previousSource, values: [95, 102, 92, 108] }
+      { source: actualSource, values: [110, 100, null, 120, 90], highlights: [55, null, null, null, null] },
+      { source: previousSource, values: [102, 95, 109, 108, 92], highlights: [51, null, null, null, null] },
+      { source: planSource, values: [108, 103, 115, 118, 96], highlights: [54, null, null, null, null] }
     ]
   }
 } as never;
 
 const host = {
   createSelectionIdBuilder: () => {
-    let index = -1;
+    const parts: string[] = [];
     const builder = {
-      withCategory: (_column: unknown, rowIndex: number) => {
-        index = rowIndex;
+      withCategory: (column: { source: { displayName: string } }, rowIndex: number) => {
+        parts.push(`${column.source.displayName}-${rowIndex}`);
         return builder;
       },
-      createSelectionId: () => ({ getKey: () => `selection-${index}` })
+      createSelectionId: () => ({
+        getKey: () => parts.join("/"),
+        includes: (other: { getKey?: () => string }) => parts.join("/").includes(other.getKey?.() ?? "never")
+      })
     };
     return builder;
   }
 } as never;
 
 const cards = transformData(dataView, host, DEFAULT_SETTINGS);
-if (cards.length !== 2 || cards.some(card => card.points.length !== 2)) {
-  throw new Error(`Trend transformation failed: ${cards.map(card => `${card.title}:${card.points.length}`).join(", ")}`);
-}
-if (cards.some(card => card.selectionIds?.length !== 2)) {
-  throw new Error("Each grouped card must retain all trend-row selection identities.");
-}
-if (cards[0].points.some(point => point.category.includes("T"))) {
-  throw new Error("ISO trend categories were not formatted as readable dates.");
-}
-if (getTrendComparisonKey(cards[0].points) !== null) {
-  throw new Error("Previous-year values must not create a second trend line.");
+if (cards.length !== 2 || cards.map(card => card.points.length).join(",") !== "3,2") {
+  throw new Error(`趋势转换失败：${cards.map(card => `${card.title}:${card.points.length}`).join(", ")}`);
 }
 
-cards[0].points[0].plan = 105;
-if (getTrendComparisonKey(cards[0].points) !== "plan") {
-  throw new Error("Plan values must create the comparison trend line.");
+const hubei = cards.find(card => card.title === "湖北省")!;
+if (hubei.points.map(point => point.sourceIndex).join(",") !== "1,0,2") {
+  throw new Error(`趋势日期没有正确排序：${hubei.points.map(point => point.sourceIndex).join(",")}`);
+}
+if (hubei.value !== 110 || hubei.previous !== 102 || hubei.plan !== 108) {
+  throw new Error(`最新有效期间没有对齐：AC=${hubei.value}, PY=${hubei.previous}, PL=${hubei.plan}`);
+}
+if (!hubei.hasHighlights || hubei.highlightedValue !== 55 || hubei.points[1].actualHighlight !== 55) {
+  throw new Error("Power BI highlights 没有正确转换到卡片和趋势点。");
+}
+if (hubei.selectionIds?.length !== 3 || hubei.points.some(point => !point.selectionId)) {
+  throw new Error("卡片和趋势点必须保留各自的选择身份。");
+}
+if (hubei.points.some(point => point.category.includes("T"))) {
+  throw new Error("ISO 日期没有格式化为可读标签。");
+}
+if (getTrendComparisonKey(hubei.points) !== "plan") {
+  throw new Error("有计划值时必须显示计划比较线。");
 }
 
-console.log("Trend data produces multiple points per KPI card.");
+const sumCard = transformData(dataView, host, { ...DEFAULT_SETTINGS, valueMode: "sum" }).find(card => card.title === "湖北省")!;
+if (sumCard.value !== 210 || sumCard.highlightedValue !== 55) {
+  throw new Error(`合计模式错误：value=${sumCard.value}, highlight=${sumCard.highlightedValue}`);
+}
+
+console.log("趋势排序、最新有效期间、联动高亮和选择上下文均通过验证。");

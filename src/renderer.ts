@@ -30,7 +30,7 @@ function selectionMatches(active: unknown, candidate: unknown): boolean {
 type RendererCallbacks = {
   onSelect?: (card: KpiCard, multi: boolean, isSelected: boolean) => void;
   onClearSelection?: () => void;
-  onContextMenu?: (card: KpiCard, x: number, y: number) => void;
+  onContextMenu?: (card: KpiCard, point: TrendPoint | undefined, x: number, y: number) => void;
 };
 
 export class CardsRenderer {
@@ -207,7 +207,9 @@ export class CardsRenderer {
     const article = document.createElement("article");
     const isSelected = this.selectedKeys.has(card.key);
     const isDimmed = this.settings.dimUnselected && this.selectedKeys.size > 0 && !isSelected;
-    article.className = `kpi-card style-${this.settings.cardStyle} align-${this.settings.valueAlignment} variance-${this.settings.variancePosition}${focused ? " is-focused" : ""}${isSelected ? " is-selected" : ""}${isDimmed ? " is-dimmed" : ""}`;
+    const isHighlighted = card.hasHighlights && card.highlightedValue != null;
+    const isHighlightDimmed = card.hasHighlights && !isHighlighted;
+    article.className = `kpi-card style-${this.settings.cardStyle} align-${this.settings.valueAlignment} variance-${this.settings.variancePosition}${focused ? " is-focused" : ""}${isSelected ? " is-selected" : ""}${isDimmed ? " is-dimmed" : ""}${isHighlighted ? " is-highlighted" : ""}${isHighlightDimmed ? " is-highlight-dimmed" : ""}`;
     article.draggable = !focused && this.settings.sortMode === "original";
     article.dataset.key = card.key;
     article.tabIndex = 0;
@@ -236,6 +238,13 @@ export class CardsRenderer {
     headline.className = "headline";
     headline.textContent = formatValue(card.value, card.format);
     if (this.settings.showValue) metrics.append(headline);
+    if (card.hasHighlights && card.highlightedValue != null && card.highlightedValue !== card.value) {
+      const highlighted = document.createElement("div");
+      highlighted.className = "highlight-value";
+      highlighted.textContent = formatValue(card.highlightedValue, card.format);
+      highlighted.title = "当前联动高亮值";
+      metrics.append(highlighted);
+    }
 
     const reference = card.plan ?? card.previous;
     if (this.settings.showVariance !== "none" && reference != null && card.value != null) {
@@ -258,7 +267,10 @@ export class CardsRenderer {
     }
 
     if (!this.settings.suppressChart && card.points.length > 1) {
-      const chart = createChart(card.points, this.settings, extent);
+      const chart = createChart(card.points, this.settings, extent, point => {
+        const rect = chart.getBoundingClientRect();
+        this.callbacks.onContextMenu?.(card, point, rect.left, rect.bottom);
+      });
       chart.classList.add("microchart");
       article.append(chart);
     } else {
@@ -272,7 +284,7 @@ export class CardsRenderer {
     };
     article.oncontextmenu = event => {
       event.preventDefault();
-      this.callbacks.onContextMenu?.(card, event.clientX, event.clientY);
+      this.callbacks.onContextMenu?.(card, undefined, event.clientX, event.clientY);
     };
     article.querySelector<HTMLButtonElement>(".focus-button")!.onclick = event => {
       event.stopPropagation();
@@ -282,7 +294,7 @@ export class CardsRenderer {
     article.querySelector<HTMLButtonElement>(".more-button")!.onclick = event => {
       event.stopPropagation();
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      this.callbacks.onContextMenu?.(card, rect.left, rect.bottom);
+      this.callbacks.onContextMenu?.(card, undefined, rect.left, rect.bottom);
     };
     this.attachDrag(article);
     return article;
@@ -372,7 +384,7 @@ export class CardsRenderer {
   }
 }
 
-function createChart(points: TrendPoint[], settings: CardSettings, extent: [number, number] | null): SVGSVGElement {
+function createChart(points: TrendPoint[], settings: CardSettings, extent: [number, number] | null, onPointContextMenu?: (point: TrendPoint) => void): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 320 120");
   svg.setAttribute("preserveAspectRatio", "none");
@@ -407,6 +419,8 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
       svg.append(svgPath(area, "none", good ? settings.goodColor : settings.badColor, 0, 0.86));
     }
     if (actualPath) svg.append(svgPath(actualPath, settings.actualColor, "none", settings.chartLineWidth));
+    const highlightPath = linePath(points, "actualHighlight", x, y);
+    if (highlightPath) svg.append(svgPath(highlightPath, settings.actualColor, "none", Math.max(settings.chartLineWidth + 1.5, 3.5), 1, "trend-highlight"));
     if (settings.chartType === "line") {
       points.forEach((point, index) => {
         if (point.actual == null) return;
@@ -422,6 +436,21 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
       });
     }
   }
+  points.forEach((point, index) => {
+    if (!point.selectionId || point.actual == null) return;
+    const hit = document.createElementNS(SVG_NS, "circle");
+    hit.setAttribute("cx", String(x(index)));
+    hit.setAttribute("cy", String(y(point.actual)));
+    hit.setAttribute("r", "8");
+    hit.setAttribute("fill", "transparent");
+    hit.setAttribute("class", "trend-hit-target");
+    hit.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      onPointContextMenu?.(point);
+    });
+    svg.append(hit);
+  });
   if (settings.showAxisLabels) addAxisLabels(svg, points, settings);
   return svg;
 }
@@ -471,7 +500,7 @@ function drawVariance(svg: SVGSVGElement, points: TrendPoint[], x: (i: number) =
   });
 }
 
-function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan", x: (i: number) => number, y: (v: number) => number): string {
+function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan" | "actualHighlight", x: (i: number) => number, y: (v: number) => number): string {
   let path = "";
   points.forEach((point, index) => {
     const value = point[key];
@@ -485,7 +514,7 @@ export function getTrendComparisonKey(points: TrendPoint[]): "plan" | null {
   return points.some(point => point.plan != null) ? "plan" : null;
 }
 
-function svgPath(d: string, stroke: string, fill: string, width: number, opacity = 1): SVGPathElement {
+function svgPath(d: string, stroke: string, fill: string, width: number, opacity = 1, className?: string): SVGPathElement {
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", d);
   path.setAttribute("stroke", stroke);
@@ -493,6 +522,7 @@ function svgPath(d: string, stroke: string, fill: string, width: number, opacity
   path.setAttribute("stroke-width", String(width));
   path.setAttribute("vector-effect", "non-scaling-stroke");
   path.setAttribute("opacity", String(opacity));
+  if (className) path.setAttribute("class", className);
   return path;
 }
 

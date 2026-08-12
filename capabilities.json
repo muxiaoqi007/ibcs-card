@@ -134,6 +134,7 @@
     }
   },
   "supportsHighlight": true,
+  "supportsMultiVisualSelection": true,
   "supportsLandingPage": true,
   "supportsEmptyDataView": true,
   "supportsKeyboardFocus": true,

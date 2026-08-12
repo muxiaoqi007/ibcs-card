@@ -53,10 +53,17 @@ export interface CardSettings {
 
 export interface TrendPoint {
   category: string;
+  sortValue?: number | string;
+  sourceIndex?: number;
   actual: number | null;
   previous: number | null;
   plan: number | null;
   forecast: number | null;
+  actualHighlight?: number | null;
+  previousHighlight?: number | null;
+  planHighlight?: number | null;
+  forecastHighlight?: number | null;
+  selectionId?: unknown;
   comment?: string;
   tooltip?: string;
 }
@@ -68,6 +75,8 @@ export interface KpiCard {
   previous: number | null;
   plan: number | null;
   forecast: number | null;
+  highlightedValue?: number | null;
+  hasHighlights?: boolean;
   format?: string;
   points: TrendPoint[];
   secondary: Array<{ label: string; value: number | null; format?: string }>;
