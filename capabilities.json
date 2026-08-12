@@ -61,12 +61,14 @@
       "displayName": "卡片",
       "properties": {
         "showVariance": { "displayName": "差异显示", "type": { "enumeration": [{ "displayName": "同时显示", "value": "both" }, { "displayName": "相对差异", "value": "relative" }, { "displayName": "绝对差异", "value": "absolute" }, { "displayName": "不显示", "value": "none" }] } },
-        "chartType": { "displayName": "图表类型", "type": { "enumeration": [{ "displayName": "面积图", "value": "area" }, { "displayName": "折线图", "value": "line" }, { "displayName": "瀑布图", "value": "waterfall" }, { "displayName": "差异图", "value": "variance" }] } },
+        "chartType": { "displayName": "图表类型", "type": { "enumeration": [{ "displayName": "面积图", "value": "area" }, { "displayName": "折线图", "value": "line" }, { "displayName": "瀑布图", "value": "waterfall" }, { "displayName": "差异图", "value": "variance" }, { "displayName": "子弹图", "value": "bullet" }] } },
         "valueAlignment": { "displayName": "主值对齐", "type": { "enumeration": [{ "displayName": "左对齐", "value": "left" }, { "displayName": "居中", "value": "center" }, { "displayName": "右对齐", "value": "right" }] } },
         "variancePosition": { "displayName": "差异值位置", "type": { "enumeration": [{ "displayName": "主值右侧", "value": "right" }, { "displayName": "主值下方", "value": "below" }] } },
         "suppressChart": { "displayName": "隐藏趋势图", "type": { "bool": true } },
         "wrapTitle": { "displayName": "卡片标题换行", "type": { "bool": true } },
-        "invertNegative": { "displayName": "反转指标含义", "type": { "bool": true } }
+        "invertNegative": { "displayName": "反转指标含义", "type": { "bool": true } },
+        "scaleVarianceIcons": { "displayName": "按差异大小缩放图标", "type": { "bool": true } },
+        "neutralTolerancePercent": { "displayName": "中性容差（%）", "type": { "numeric": true } }
       }
     },
     "style": {
@@ -80,6 +82,8 @@
         "badColor": { "displayName": "负向颜色", "type": { "fill": { "solid": { "color": true } } } },
         "actualColor": { "displayName": "实际值颜色", "type": { "fill": { "solid": { "color": true } } } },
         "comparisonColor": { "displayName": "对比线颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "forecastColor": { "displayName": "预测线颜色", "type": { "fill": { "solid": { "color": true } } } },
+        "neutralColor": { "displayName": "中性差异颜色", "type": { "fill": { "solid": { "color": true } } } },
         "cardBackgroundColor": { "displayName": "卡片背景", "type": { "fill": { "solid": { "color": true } } } },
         "cardBorderColor": { "displayName": "卡片边框", "type": { "fill": { "solid": { "color": true } } } },
         "cardBorderWidth": { "displayName": "边框宽度", "type": { "numeric": true } },

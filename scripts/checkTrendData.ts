@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "../src/model";
-import { getTrendComparisonKey } from "../src/renderer";
+import { getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
 import { transformData } from "../src/visual";
 
 const groupSource = { displayName: "省份", roles: { group: true } };
@@ -63,6 +63,20 @@ if (hubei.points.some(point => point.category.includes("T"))) {
 }
 if (getTrendComparisonKey(hubei.points) !== "plan") {
   throw new Error("有计划值时必须显示计划比较线。");
+}
+const bullet = getBulletValues(hubei.points);
+if (bullet.actual !== 110 || bullet.plan !== 108 || bullet.previous !== 102) {
+  throw new Error(`子弹图比较期间没有对齐：${JSON.stringify(bullet)}`);
+}
+
+const neutralState = getVarianceVisualState(101, 100, { invertNegative: false, neutralTolerancePercent: 2, scaleVarianceIcons: true }, .2);
+const positiveState = getVarianceVisualState(120, 100, { invertNegative: false, neutralTolerancePercent: 2, scaleVarianceIcons: true }, .2);
+const invertedState = getVarianceVisualState(120, 100, { invertNegative: true, neutralTolerancePercent: 2, scaleVarianceIcons: false }, .2);
+if (neutralState.state !== "neutral" || positiveState.state !== "positive" || invertedState.state !== "negative") {
+  throw new Error("差异的正向、负向或中性语义错误。");
+}
+if (Math.abs(positiveState.scale - 1.4) > 1e-9 || neutralState.scale < .65 || neutralState.scale > 1.4) {
+  throw new Error(`差异图标缩放超出范围：neutral=${neutralState.scale}, max=${positiveState.scale}`);
 }
 
 const sumCard = transformData(dataView, host, { ...DEFAULT_SETTINGS, valueMode: "sum" }).find(card => card.title === "湖北省")!;

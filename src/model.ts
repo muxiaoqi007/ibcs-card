@@ -1,5 +1,5 @@
 export type LayoutMode = "grid" | "row";
-export type ChartType = "area" | "line" | "waterfall" | "variance";
+export type ChartType = "area" | "line" | "waterfall" | "variance" | "bullet";
 export type VarianceMode = "both" | "relative" | "absolute" | "none";
 export type SortMode = "valueDesc" | "valueAsc" | "varianceDesc" | "varianceAsc" | "titleAsc" | "titleDesc" | "original";
 
@@ -16,6 +16,8 @@ export interface CardSettings {
   suppressChart: boolean;
   wrapTitle: boolean;
   invertNegative: boolean;
+  scaleVarianceIcons: boolean;
+  neutralTolerancePercent: number;
   cardStyle: "shadow" | "outlined" | "flat";
   fontFamily: string;
   spacing: number;
@@ -24,6 +26,8 @@ export interface CardSettings {
   badColor: string;
   actualColor: string;
   comparisonColor: string;
+  forecastColor: string;
+  neutralColor: string;
   cardBackgroundColor: string;
   cardBorderColor: string;
   cardBorderWidth: number;
@@ -98,6 +102,8 @@ export const DEFAULT_SETTINGS: CardSettings = {
   suppressChart: false,
   wrapTitle: false,
   invertNegative: false,
+  scaleVarianceIcons: true,
+  neutralTolerancePercent: 0,
   cardStyle: "shadow",
   fontFamily: "Segoe UI, Arial, sans-serif",
   spacing: 8,
@@ -106,6 +112,8 @@ export const DEFAULT_SETTINGS: CardSettings = {
   badColor: "#ee2b2b",
   actualColor: "#2f2f2f",
   comparisonColor: "#9b9b9b",
+  forecastColor: "#606060",
+  neutralColor: "#808080",
   cardBackgroundColor: "#ffffff",
   cardBorderColor: "#dedede",
   cardBorderWidth: 1,

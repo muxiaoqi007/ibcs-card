@@ -5,6 +5,8 @@
   --bad: #ee2b2b;
   --actual: #2f2f2f;
   --comparison: #9b9b9b;
+  --forecast: #606060;
+  --neutral: #808080;
   --gap: 8px;
   position: relative;
   width: 100%;
@@ -75,7 +77,8 @@ button { font-family: inherit; }
 .highlight-value { padding: 2px 5px; border-radius: 2px; color: #fff; background: var(--actual); font-size: calc(var(--variance-size) + 1px); font-weight: 700; white-space: nowrap; }
 .variance { display: flex; align-items: center; gap: 3px; color: var(--good); font-size: var(--variance-size); font-weight: 700; white-space: nowrap; }
 .variance.negative { color: var(--bad); }
-.variance-icon { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; color: #fff; background: currentColor; font-size: 10px; line-height: 1; }
+.variance.neutral { color: var(--neutral); }
+.variance-icon { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; color: #fff; background: currentColor; font-size: 10px; line-height: 1; transform: scale(var(--variance-icon-scale, 1)); transform-origin: center; }
 .variance-icon::first-letter { color: #fff; }
 .variance em { color: var(--variance-label); font-size: .92em; font-style: normal; font-weight: 400; }
 .variance-separator { margin: 0 3px; color: #b1b1b1; font-weight: 400; }
@@ -86,6 +89,7 @@ button { font-family: inherit; }
 .secondary-values strong { color: #888; font-weight: 600; }
 .microchart { display: block; width: 100%; height: var(--chart-height); min-height: var(--chart-height); margin-top: auto; overflow: visible; }
 .trend-highlight { filter: drop-shadow(0 0 1px #fff); }
+.forecast-line { stroke-linecap: round; }
 .trend-hit-target { cursor: context-menu; pointer-events: all; }
 .no-chart { justify-content: center; min-height: 120px; }
 .no-chart header { position: absolute; top: 11px; right: 12px; left: 12px; }

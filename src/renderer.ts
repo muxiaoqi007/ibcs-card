@@ -70,6 +70,8 @@ export class CardsRenderer {
     this.root.style.setProperty("--bad", this.settings.badColor);
     this.root.style.setProperty("--actual", this.settings.actualColor);
     this.root.style.setProperty("--comparison", this.settings.comparisonColor);
+    this.root.style.setProperty("--forecast", this.settings.forecastColor);
+    this.root.style.setProperty("--neutral", this.settings.neutralColor);
     this.root.style.setProperty("--gap", `${this.settings.spacing}px`);
     this.root.style.setProperty("--card-bg", this.settings.cardBackgroundColor);
     this.root.style.setProperty("--card-border", this.settings.cardBorderColor);
@@ -109,12 +111,13 @@ export class CardsRenderer {
     };
 
     const extent = this.settings.scaleCharts ? this.getGlobalExtent(this.cards) : null;
-    for (const card of this.cards) container.append(this.createCard(card, extent, false));
+    const maxRelativeVariance = this.getMaxRelativeVariance(this.cards);
+    for (const card of this.cards) container.append(this.createCard(card, extent, false, maxRelativeVariance));
     this.root.append(container);
 
     if (this.focusedKey) {
       const focused = this.cards.find(card => card.key === this.focusedKey);
-      if (focused) this.root.append(this.createFocus(focused, extent));
+      if (focused) this.root.append(this.createFocus(focused, extent, maxRelativeVariance));
     }
   }
 
@@ -203,7 +206,7 @@ export class CardsRenderer {
     return bar;
   }
 
-  private createCard(card: KpiCard, extent: [number, number] | null, focused: boolean): HTMLElement {
+  private createCard(card: KpiCard, extent: [number, number] | null, focused: boolean, maxRelativeVariance: number): HTMLElement {
     const article = document.createElement("article");
     const isSelected = this.selectedKeys.has(card.key);
     const isDimmed = this.settings.dimUnselected && this.selectedKeys.size > 0 && !isSelected;
@@ -248,10 +251,10 @@ export class CardsRenderer {
 
     const reference = card.plan ?? card.previous;
     if (this.settings.showVariance !== "none" && reference != null && card.value != null) {
-      metrics.append(this.createVariance(card.value, reference, card.plan != null ? "PL" : "PY", card.format));
+      metrics.append(this.createVariance(card.value, reference, card.plan != null ? "PL" : "PY", card.format, false, maxRelativeVariance));
     }
     if (this.settings.showVariance !== "none" && card.plan != null && card.previous != null && card.value != null) {
-      metrics.append(this.createVariance(card.value, card.previous, "PY", card.format, true));
+      metrics.append(this.createVariance(card.value, card.previous, "PY", card.format, true, maxRelativeVariance));
     }
     article.append(metrics);
 
@@ -300,18 +303,18 @@ export class CardsRenderer {
     return article;
   }
 
-  private createVariance(actual: number, comparison: number, label: string, format?: string, compact = false): HTMLElement {
+  private createVariance(actual: number, comparison: number, label: string, format?: string, compact = false, maxRelativeVariance = 0): HTMLElement {
     const absolute = actual - comparison;
-    const relative = comparison === 0 ? null : absolute / Math.abs(comparison);
-    const semantic = (this.settings.invertNegative ? -1 : 1) * absolute;
-    const positive = semantic >= 0;
+    const visualState = getVarianceVisualState(actual, comparison, this.settings, maxRelativeVariance);
+    const relative = visualState.relative;
     const node = document.createElement("div");
-    node.className = `variance ${positive ? "positive" : "negative"}${compact ? " compact" : ""}`;
+    node.className = `variance ${visualState.state}${compact ? " compact" : ""}`;
     const absText = `${absolute >= 0 ? "+" : ""}${formatValue(absolute, format, true)}`;
     const relText = relative == null ? "–" : `${relative >= 0 ? "+" : ""}${(relative * 100).toFixed(Math.abs(relative) < 0.1 ? 1 : 0)}%`;
     const icon = document.createElement("span");
     icon.className = "variance-icon";
-    icon.textContent = positive ? "↑" : "↓";
+    icon.textContent = visualState.state === "neutral" ? "•" : visualState.state === "positive" ? "↑" : "↓";
+    icon.style.setProperty("--variance-icon-scale", visualState.scale.toFixed(3));
     const value = document.createElement("span");
     if (this.settings.showVariance === "absolute") value.textContent = absText;
     else if (this.settings.showVariance === "relative") value.textContent = relText;
@@ -327,7 +330,7 @@ export class CardsRenderer {
     return node;
   }
 
-  private createFocus(card: KpiCard, extent: [number, number] | null): HTMLElement {
+  private createFocus(card: KpiCard, extent: [number, number] | null, maxRelativeVariance: number): HTMLElement {
     const overlay = document.createElement("div");
     overlay.className = "focus-overlay";
     const panel = document.createElement("section");
@@ -340,7 +343,7 @@ export class CardsRenderer {
       this.focusedKey = null;
       this.render(this.cards, this.settings);
     };
-    panel.append(close, this.createCard(card, extent, true));
+    panel.append(close, this.createCard(card, extent, true, maxRelativeVariance));
     if (card.comment) {
       const comment = document.createElement("aside");
       comment.className = "focus-comment";
@@ -379,8 +382,16 @@ export class CardsRenderer {
   }
 
   private getGlobalExtent(cards: KpiCard[]): [number, number] | null {
-    const values = cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan]).filter(isNumber));
+    const values = cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber));
     return values.length ? [Math.min(...values), Math.max(...values)] : null;
+  }
+
+  private getMaxRelativeVariance(cards: KpiCard[]): number {
+    return Math.max(0, ...cards.map(card => {
+      const reference = card.plan ?? card.previous;
+      if (card.value == null || reference == null || reference === 0) return 0;
+      return Math.abs((card.value - reference) / Math.abs(reference));
+    }));
   }
 }
 
@@ -390,7 +401,7 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "趋势图");
-  const values = points.flatMap(point => [point.actual, point.previous, point.plan]).filter(isNumber);
+  const values = points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber);
   if (!values.length) return svg;
   let min = extent?.[0] ?? Math.min(...values);
   let max = extent?.[1] ?? Math.max(...values);
@@ -401,7 +412,9 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
   const x = (index: number) => 10 + index * (300 / Math.max(1, points.length - 1));
   const y = (value: number) => 98 - ((value - min) / (max - min)) * 82;
 
-  if (settings.chartType === "waterfall") {
+  if (settings.chartType === "bullet") {
+    drawBullet(svg, points, settings);
+  } else if (settings.chartType === "waterfall") {
     drawWaterfall(svg, points, x, y, settings);
   } else if (settings.chartType === "variance") {
     drawVariance(svg, points, x, y, settings);
@@ -410,6 +423,13 @@ function createChart(points: TrendPoint[], settings: CardSettings, extent: [numb
     const comparisonPath = comparisonKey ? linePath(points, comparisonKey, x, y) : "";
     if (comparisonPath) svg.append(svgPath(comparisonPath, settings.comparisonColor, "none", Math.max(1, settings.chartLineWidth * 0.75)));
     const actualPath = linePath(points, "actual", x, y);
+    const forecastPath = linePath(points, "forecast", x, y);
+    if (forecastPath) {
+      const path = svgPath(forecastPath, settings.forecastColor, "none", settings.chartLineWidth);
+      path.setAttribute("stroke-dasharray", "6 4");
+      path.setAttribute("class", "forecast-line");
+      svg.append(path);
+    }
     if (settings.chartType === "area" && actualPath) {
       const lastX = x(points.length - 1);
       const baseY = Math.min(110, Math.max(8, y(0)));
@@ -500,7 +520,7 @@ function drawVariance(svg: SVGSVGElement, points: TrendPoint[], x: (i: number) =
   });
 }
 
-function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan" | "actualHighlight", x: (i: number) => number, y: (v: number) => number): string {
+function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan" | "forecast" | "actualHighlight", x: (i: number) => number, y: (v: number) => number): string {
   let path = "";
   points.forEach((point, index) => {
     const value = point[key];
@@ -508,6 +528,72 @@ function linePath(points: TrendPoint[], key: "actual" | "previous" | "plan" | "a
     path += `${path ? " L" : "M"} ${x(index)} ${y(value)}`;
   });
   return path;
+}
+
+function drawBullet(svg: SVGSVGElement, points: TrendPoint[], settings: CardSettings): void {
+  const { actual, plan, previous, forecast } = getBulletValues(points);
+  const values = [actual, plan, previous, forecast, 0].filter(isNumber);
+  if (!values.length || actual == null) return;
+  const max = Math.max(...values, 0);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const x = (value: number) => 12 + ((value - min) / range) * 296;
+  const zero = x(0);
+  const end = x(actual);
+
+  const background = document.createElementNS(SVG_NS, "rect");
+  background.setAttribute("x", "12");
+  background.setAttribute("y", "43");
+  background.setAttribute("width", "296");
+  background.setAttribute("height", "34");
+  background.setAttribute("fill", "#eeeeee");
+  svg.append(background);
+
+  const bar = document.createElementNS(SVG_NS, "rect");
+  bar.setAttribute("x", String(Math.min(zero, end)));
+  bar.setAttribute("y", "50");
+  bar.setAttribute("width", String(Math.max(2, Math.abs(end - zero))));
+  bar.setAttribute("height", "20");
+  bar.setAttribute("fill", settings.actualColor);
+  svg.append(bar);
+
+  const marker = (value: number | null, color: string, dash = "") => {
+    if (value == null) return;
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", String(x(value)));
+    line.setAttribute("x2", String(x(value)));
+    line.setAttribute("y1", "37");
+    line.setAttribute("y2", "83");
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", "3");
+    if (dash) line.setAttribute("stroke-dasharray", dash);
+    svg.append(line);
+  };
+  marker(plan, settings.comparisonColor);
+  marker(previous, settings.comparisonColor, "2 2");
+  marker(forecast, settings.forecastColor, "6 3");
+}
+
+export function getBulletValues(points: TrendPoint[]): { actual: number | null; plan: number | null; previous: number | null; forecast: number | null } {
+  const actualPoint = [...points].reverse().find(point => point.actual != null);
+  return {
+    actual: actualPoint?.actual ?? null,
+    plan: actualPoint?.plan ?? null,
+    previous: actualPoint?.previous ?? null,
+    forecast: lastNumber(points, "forecast")
+  };
+}
+
+export function getVarianceVisualState(actual: number, comparison: number, settings: Pick<CardSettings, "invertNegative" | "neutralTolerancePercent" | "scaleVarianceIcons">, maxRelativeVariance: number): { relative: number | null; state: "positive" | "negative" | "neutral"; scale: number } {
+  const absolute = actual - comparison;
+  const relative = comparison === 0 ? null : absolute / Math.abs(comparison);
+  const semantic = (settings.invertNegative ? -1 : 1) * absolute;
+  const neutral = relative != null && Math.abs(relative) <= settings.neutralTolerancePercent / 100;
+  const state = neutral ? "neutral" : semantic >= 0 ? "positive" : "negative";
+  const scale = settings.scaleVarianceIcons && relative != null && maxRelativeVariance > 0
+    ? 0.65 + 0.75 * Math.sqrt(Math.min(1, Math.abs(relative) / maxRelativeVariance))
+    : 1;
+  return { relative, state, scale };
 }
 
 export function getTrendComparisonKey(points: TrendPoint[]): "plan" | null {

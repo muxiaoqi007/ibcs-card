@@ -80,9 +80,21 @@ class CardCardSettings extends formattingSettings.SimpleCard {
     value: DEFAULT_SETTINGS.invertNegative
   });
 
+  scaleVarianceIcons = new formattingSettings.ToggleSwitch({
+    name: "scaleVarianceIcons",
+    displayName: "按差异大小缩放图标",
+    value: DEFAULT_SETTINGS.scaleVarianceIcons
+  });
+
+  neutralTolerancePercent = new formattingSettings.NumUpDown({
+    name: "neutralTolerancePercent",
+    displayName: "中性容差（%）",
+    value: DEFAULT_SETTINGS.neutralTolerancePercent
+  });
+
   name = "card";
   displayName = "卡片";
-  slices = [this.showVariance, this.chartType, this.valueAlignment, this.variancePosition, this.suppressChart, this.wrapTitle, this.invertNegative];
+  slices = [this.showVariance, this.chartType, this.valueAlignment, this.variancePosition, this.suppressChart, this.wrapTitle, this.invertNegative, this.scaleVarianceIcons, this.neutralTolerancePercent];
 }
 
 class StyleCardSettings extends formattingSettings.SimpleCard {
@@ -134,6 +146,18 @@ class StyleCardSettings extends formattingSettings.SimpleCard {
     value: { value: DEFAULT_SETTINGS.comparisonColor }
   });
 
+  forecastColor = new formattingSettings.ColorPicker({
+    name: "forecastColor",
+    displayName: "预测线颜色",
+    value: { value: DEFAULT_SETTINGS.forecastColor }
+  });
+
+  neutralColor = new formattingSettings.ColorPicker({
+    name: "neutralColor",
+    displayName: "中性差异颜色",
+    value: { value: DEFAULT_SETTINGS.neutralColor }
+  });
+
   cardBackgroundColor = new formattingSettings.ColorPicker({
     name: "cardBackgroundColor",
     displayName: "卡片背景",
@@ -160,7 +184,7 @@ class StyleCardSettings extends formattingSettings.SimpleCard {
 
   name = "style";
   displayName = "卡片样式";
-  slices = [this.cardStyle, this.fontFamily, this.spacing, this.showToolbar, this.cardBackgroundColor, this.cardBorderColor, this.cardBorderWidth, this.cardCornerRadius, this.goodColor, this.badColor, this.actualColor, this.comparisonColor];
+  slices = [this.cardStyle, this.fontFamily, this.spacing, this.showToolbar, this.cardBackgroundColor, this.cardBorderColor, this.cardBorderWidth, this.cardCornerRadius, this.goodColor, this.badColor, this.neutralColor, this.actualColor, this.comparisonColor, this.forecastColor];
 }
 
 class TitleStyleSettings extends formattingSettings.SimpleCard {
@@ -240,6 +264,8 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     suppressChart: model.card.suppressChart.value,
     wrapTitle: model.card.wrapTitle.value,
     invertNegative: model.card.invertNegative.value,
+    scaleVarianceIcons: model.card.scaleVarianceIcons.value,
+    neutralTolerancePercent: clamp(model.card.neutralTolerancePercent.value, 0, 100),
     cardStyle: model.style.cardStyle.value as CardSettings["cardStyle"],
     fontFamily: model.style.fontFamily.value,
     spacing: clamp(model.style.spacing.value, 0, 32),
@@ -248,6 +274,8 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     badColor: model.style.badColor.value.value,
     actualColor: model.style.actualColor.value.value,
     comparisonColor: model.style.comparisonColor.value.value,
+    forecastColor: model.style.forecastColor.value.value,
+    neutralColor: model.style.neutralColor.value.value,
     cardBackgroundColor: model.style.cardBackgroundColor.value.value,
     cardBorderColor: model.style.cardBorderColor.value.value,
     cardBorderWidth: clamp(model.style.cardBorderWidth.value, 0, 12),
