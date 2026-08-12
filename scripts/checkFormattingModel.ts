@@ -8,7 +8,7 @@ const expected: Record<string, string[]> = {
   titleStyle: ["showTitle", "titlePosition", "titleAlignment", "titleFontSize", "titleColor", "titleBold"],
   valueStyle: ["showValue", "displayUnits", "decimalPlaces", "valueFontSize", "valueColor", "valueBold"],
   varianceStyle: ["varianceFontSize", "varianceLabelColor", "commentColor"],
-  trendStyle: ["chartHeight", "chartLineWidth", "showAxisLabels", "autoAxisBreak", "axisBreakThresholdPercent", "axisFontSize", "axisColor"],
+  trendStyle: ["chartHeight", "chartLineWidth", "showAxisLabels", "autoAxisBreak", "axisBreakThresholdPercent", "axisFontSize", "axisColor", "showBulletPlanMarker", "showBulletPreviousMarker", "showBulletForecastMarker", "showBulletLabels", "bulletBackgroundColor", "bulletBarHeight", "bulletMarkerWidth"],
   selectionStyle: ["selectedBorderColor", "selectedBackgroundColor", "selectedBorderWidth", "dimUnselected", "unselectedOpacity"]
 };
 

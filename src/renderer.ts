@@ -277,7 +277,8 @@ export class CardsRenderer {
       article.append(secondary);
     }
 
-    if (!this.settings.suppressChart && card.points.length > 1) {
+    const canRenderChart = this.settings.chartType === "bullet" ? card.value != null : card.points.length > 1;
+    if (!this.settings.suppressChart && canRenderChart) {
       const chart = createChart(card, this.settings, extent, point => {
         const rect = chart.getBoundingClientRect();
         this.callbacks.onContextMenu?.(card, point, rect.left, rect.bottom);
@@ -401,7 +402,7 @@ export class CardsRenderer {
 
   private getGlobalExtent(cards: KpiCard[]): [number, number] | null {
     const values = this.settings.chartType === "bullet"
-      ? cards.flatMap(card => [0, card.value, card.previous, card.plan, card.forecast].filter(isNumber))
+      ? cards.flatMap(card => getVisibleBulletNumbers(getBulletValues(card), this.settings))
       : cards.flatMap(card => card.points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber));
     return values.length ? [Math.min(...values), Math.max(...values)] : null;
   }
@@ -449,7 +450,7 @@ function createChart(card: KpiCard, settings: CardSettings, extent: [number, num
   svg.setAttribute("aria-label", "趋势图");
   const bulletValues = getBulletValues(card);
   const values = settings.chartType === "bullet"
-    ? [0, bulletValues.actual, bulletValues.previous, bulletValues.plan, bulletValues.forecast].filter(isNumber)
+    ? getVisibleBulletNumbers(bulletValues, settings)
     : points.flatMap(point => [point.actual, point.previous, point.plan, point.forecast]).filter(isNumber);
   if (!values.length) return svg;
   let min = extent?.[0] ?? Math.min(...values);
@@ -522,7 +523,7 @@ function createChart(card: KpiCard, settings: CardSettings, extent: [number, num
     });
     svg.append(hit);
   });
-  if (settings.showAxisLabels) addAxisLabels(svg, points, settings);
+  if (settings.showAxisLabels && settings.chartType !== "bullet") addAxisLabels(svg, points, settings);
   if (axisBreak) addAxisBreakMark(svg, settings);
   return svg;
 }
@@ -613,21 +614,22 @@ function drawBullet(svg: SVGSVGElement, bulletValues: BulletValues, settings: Ca
 
   const background = document.createElementNS(SVG_NS, "rect");
   background.setAttribute("x", "12");
-  background.setAttribute("y", "43");
+  background.setAttribute("y", "39");
   background.setAttribute("width", "296");
-  background.setAttribute("height", "34");
-  background.setAttribute("fill", "#eeeeee");
+  background.setAttribute("height", "42");
+  background.setAttribute("fill", settings.bulletBackgroundColor);
   svg.append(background);
 
   const bar = document.createElementNS(SVG_NS, "rect");
+  const barTop = 60 - settings.bulletBarHeight / 2;
   bar.setAttribute("x", String(Math.min(zero, end)));
-  bar.setAttribute("y", "50");
+  bar.setAttribute("y", String(barTop));
   bar.setAttribute("width", String(Math.max(2, Math.abs(end - zero))));
-  bar.setAttribute("height", "20");
+  bar.setAttribute("height", String(settings.bulletBarHeight));
   bar.setAttribute("fill", settings.actualColor);
   svg.append(bar);
 
-  const marker = (value: number | null, color: string, dash = "") => {
+  const marker = (value: number | null, color: string, label: string, labelY: number, dash = "") => {
     if (value == null) return;
     const line = document.createElementNS(SVG_NS, "line");
     line.setAttribute("x1", String(x(value)));
@@ -635,16 +637,36 @@ function drawBullet(svg: SVGSVGElement, bulletValues: BulletValues, settings: Ca
     line.setAttribute("y1", "37");
     line.setAttribute("y2", "83");
     line.setAttribute("stroke", color);
-    line.setAttribute("stroke-width", "3");
+    line.setAttribute("stroke-width", String(settings.bulletMarkerWidth));
     if (dash) line.setAttribute("stroke-dasharray", dash);
     svg.append(line);
+    if (settings.showBulletLabels) {
+      const text = document.createElementNS(SVG_NS, "text");
+      text.setAttribute("x", String(x(value)));
+      text.setAttribute("y", String(labelY));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("font-size", String(Math.max(7, settings.axisFontSize)));
+      text.setAttribute("fill", color);
+      text.textContent = label;
+      svg.append(text);
+    }
   };
-  marker(plan, settings.comparisonColor);
-  marker(previous, settings.comparisonColor, "2 2");
-  marker(forecast, settings.forecastColor, "6 3");
+  if (settings.showBulletPlanMarker) marker(plan, settings.comparisonColor, "PL", 31);
+  if (settings.showBulletPreviousMarker) marker(previous, settings.comparisonColor, "PY", 21, "2 2");
+  if (settings.showBulletForecastMarker) marker(forecast, settings.forecastColor, "FC", 11, "6 3");
 }
 
 type BulletValues = { actual: number | null; plan: number | null; previous: number | null; forecast: number | null };
+
+export function getVisibleBulletNumbers(values: BulletValues, settings: Pick<CardSettings, "showBulletPlanMarker" | "showBulletPreviousMarker" | "showBulletForecastMarker">): number[] {
+  return [
+    0,
+    values.actual,
+    settings.showBulletPlanMarker ? values.plan : null,
+    settings.showBulletPreviousMarker ? values.previous : null,
+    settings.showBulletForecastMarker ? values.forecast : null
+  ].filter(isNumber);
+}
 
 export function getBulletValues(source: TrendPoint[] | Pick<KpiCard, "value" | "plan" | "previous" | "forecast">): BulletValues {
   if (!Array.isArray(source)) {

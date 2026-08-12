@@ -61,6 +61,13 @@ export interface CardSettings {
   axisBreakThresholdPercent: number;
   axisFontSize: number;
   axisColor: string;
+  showBulletPlanMarker: boolean;
+  showBulletPreviousMarker: boolean;
+  showBulletForecastMarker: boolean;
+  showBulletLabels: boolean;
+  bulletBackgroundColor: string;
+  bulletBarHeight: number;
+  bulletMarkerWidth: number;
   selectedBorderColor: string;
   selectedBackgroundColor: string;
   selectedBorderWidth: number;
@@ -159,6 +166,13 @@ export const DEFAULT_SETTINGS: CardSettings = {
   axisBreakThresholdPercent: 35,
   axisFontSize: 10,
   axisColor: "#666666",
+  showBulletPlanMarker: true,
+  showBulletPreviousMarker: true,
+  showBulletForecastMarker: true,
+  showBulletLabels: false,
+  bulletBackgroundColor: "#eeeeee",
+  bulletBarHeight: 20,
+  bulletMarkerWidth: 3,
   selectedBorderColor: "#f2c811",
   selectedBackgroundColor: "#fff4bf",
   selectedBorderWidth: 3,

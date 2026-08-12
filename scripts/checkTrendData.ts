@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "../src/model";
-import { applyTopN, formatValue, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
+import { applyTopN, formatValue, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState, getVisibleBulletNumbers } from "../src/renderer";
 import { transformData } from "../src/visual";
 
 const groupSource = { displayName: "省份", roles: { group: true } };
@@ -89,6 +89,10 @@ if (sumBullet.actual !== 210 || sumBullet.previous !== 306 || sumBullet.plan !==
 }
 if (formatValue(4980000000, "", "hundredMillions", 1) !== "49.8亿" || formatValue(4980000000, "", "billions", 2) !== "4.98B" || formatValue(4980, "", "none", 0) !== "4,980") {
   throw new Error("显示单位或小数位格式化错误。");
+}
+const visibleBulletNumbers = getVisibleBulletNumbers({ actual: 100, plan: 130, previous: 90, forecast: 150 }, { showBulletPlanMarker: false, showBulletPreviousMarker: true, showBulletForecastMarker: false });
+if (visibleBulletNumbers.join(",") !== "0,100,90") {
+  throw new Error(`隐藏的子弹图标记仍在影响刻度：${visibleBulletNumbers.join(",")}`);
 }
 
 const topN = applyTopN(cards, { topN: 1, topNBy: "value", showOthers: true });

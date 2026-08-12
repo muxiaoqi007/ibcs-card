@@ -137,6 +137,13 @@
         "axisBreakThresholdPercent": { "displayName": "断轴阈值（%）", "type": { "numeric": true } },
         "axisFontSize": { "displayName": "坐标轴标签字号", "type": { "numeric": true } },
         "axisColor": { "displayName": "坐标轴标签颜色", "type": { "fill": { "solid": { "color": true } } } }
+        ,"showBulletPlanMarker": { "displayName": "子弹图显示计划标记", "type": { "bool": true } }
+        ,"showBulletPreviousMarker": { "displayName": "子弹图显示去年同期标记", "type": { "bool": true } }
+        ,"showBulletForecastMarker": { "displayName": "子弹图显示预测标记", "type": { "bool": true } }
+        ,"showBulletLabels": { "displayName": "子弹图显示标记标签", "type": { "bool": true } }
+        ,"bulletBackgroundColor": { "displayName": "子弹图背景色", "type": { "fill": { "solid": { "color": true } } } }
+        ,"bulletBarHeight": { "displayName": "子弹图条形高度", "type": { "numeric": true } }
+        ,"bulletMarkerWidth": { "displayName": "子弹图标记线宽", "type": { "numeric": true } }
       }
     },
     "selectionStyle": {

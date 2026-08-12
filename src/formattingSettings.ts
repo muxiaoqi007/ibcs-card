@@ -252,9 +252,16 @@ class TrendStyleSettings extends formattingSettings.SimpleCard {
   axisBreakThresholdPercent = new formattingSettings.NumUpDown({ name: "axisBreakThresholdPercent", displayName: "断轴阈值（%）", value: DEFAULT_SETTINGS.axisBreakThresholdPercent });
   axisFontSize = new formattingSettings.NumUpDown({ name: "axisFontSize", displayName: "坐标轴标签字号", value: DEFAULT_SETTINGS.axisFontSize });
   axisColor = new formattingSettings.ColorPicker({ name: "axisColor", displayName: "坐标轴标签颜色", value: { value: DEFAULT_SETTINGS.axisColor } });
+  showBulletPlanMarker = new formattingSettings.ToggleSwitch({ name: "showBulletPlanMarker", displayName: "子弹图显示计划标记", value: DEFAULT_SETTINGS.showBulletPlanMarker });
+  showBulletPreviousMarker = new formattingSettings.ToggleSwitch({ name: "showBulletPreviousMarker", displayName: "子弹图显示去年同期标记", value: DEFAULT_SETTINGS.showBulletPreviousMarker });
+  showBulletForecastMarker = new formattingSettings.ToggleSwitch({ name: "showBulletForecastMarker", displayName: "子弹图显示预测标记", value: DEFAULT_SETTINGS.showBulletForecastMarker });
+  showBulletLabels = new formattingSettings.ToggleSwitch({ name: "showBulletLabels", displayName: "子弹图显示标记标签", value: DEFAULT_SETTINGS.showBulletLabels });
+  bulletBackgroundColor = new formattingSettings.ColorPicker({ name: "bulletBackgroundColor", displayName: "子弹图背景色", value: { value: DEFAULT_SETTINGS.bulletBackgroundColor } });
+  bulletBarHeight = new formattingSettings.NumUpDown({ name: "bulletBarHeight", displayName: "子弹图条形高度", value: DEFAULT_SETTINGS.bulletBarHeight });
+  bulletMarkerWidth = new formattingSettings.NumUpDown({ name: "bulletMarkerWidth", displayName: "子弹图标记线宽", value: DEFAULT_SETTINGS.bulletMarkerWidth });
   name = "trendStyle";
   displayName = "趋势图";
-  slices = [this.chartHeight, this.chartLineWidth, this.showAxisLabels, this.autoAxisBreak, this.axisBreakThresholdPercent, this.axisFontSize, this.axisColor];
+  slices = [this.chartHeight, this.chartLineWidth, this.showAxisLabels, this.autoAxisBreak, this.axisBreakThresholdPercent, this.axisFontSize, this.axisColor, this.showBulletPlanMarker, this.showBulletPreviousMarker, this.showBulletForecastMarker, this.showBulletLabels, this.bulletBackgroundColor, this.bulletBarHeight, this.bulletMarkerWidth];
 }
 
 class SelectionStyleSettings extends formattingSettings.SimpleCard {
@@ -336,6 +343,13 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     axisBreakThresholdPercent: clamp(model.trendStyle.axisBreakThresholdPercent.value, 1, 100),
     axisFontSize: clamp(model.trendStyle.axisFontSize.value, 6, 30),
     axisColor: model.trendStyle.axisColor.value.value,
+    showBulletPlanMarker: model.trendStyle.showBulletPlanMarker.value,
+    showBulletPreviousMarker: model.trendStyle.showBulletPreviousMarker.value,
+    showBulletForecastMarker: model.trendStyle.showBulletForecastMarker.value,
+    showBulletLabels: model.trendStyle.showBulletLabels.value,
+    bulletBackgroundColor: model.trendStyle.bulletBackgroundColor.value.value,
+    bulletBarHeight: clamp(model.trendStyle.bulletBarHeight.value, 4, 40),
+    bulletMarkerWidth: clamp(model.trendStyle.bulletMarkerWidth.value, 1, 10),
     selectedBorderColor: model.selectionStyle.selectedBorderColor.value.value,
     selectedBackgroundColor: model.selectionStyle.selectedBackgroundColor.value.value,
     selectedBorderWidth: clamp(model.selectionStyle.selectedBorderWidth.value, 1, 12),
