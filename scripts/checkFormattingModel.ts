@@ -5,8 +5,8 @@ const expected: Record<string, string[]> = {
   general: ["layout", "maxCardsInRow", "scaleCharts", "scaleMode", "valueMode", "sortMode", "topN", "topNBy", "showOthers"],
   card: ["showVariance", "chartType", "valueAlignment", "variancePosition", "suppressChart", "wrapTitle", "invertNegative", "scaleVarianceIcons", "neutralTolerancePercent"],
   style: ["cardStyle", "fontFamily", "spacing", "showToolbar", "goodColor", "badColor", "neutralColor", "actualColor", "comparisonColor", "forecastColor", "cardBackgroundColor", "cardBorderColor", "cardBorderWidth", "cardCornerRadius"],
-  titleStyle: ["showTitle", "titleFontSize", "titleColor", "titleBold"],
-  valueStyle: ["showValue", "valueFontSize", "valueColor", "valueBold"],
+  titleStyle: ["showTitle", "titlePosition", "titleAlignment", "titleFontSize", "titleColor", "titleBold"],
+  valueStyle: ["showValue", "displayUnits", "decimalPlaces", "valueFontSize", "valueColor", "valueBold"],
   varianceStyle: ["varianceFontSize", "varianceLabelColor", "commentColor"],
   trendStyle: ["chartHeight", "chartLineWidth", "showAxisLabels", "autoAxisBreak", "axisBreakThresholdPercent", "axisFontSize", "axisColor"],
   selectionStyle: ["selectedBorderColor", "selectedBackgroundColor", "selectedBorderWidth", "dimUnselected", "unselectedOpacity"]

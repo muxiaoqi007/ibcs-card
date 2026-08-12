@@ -1,5 +1,5 @@
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
-import { CardSettings, ChartType, DEFAULT_SETTINGS, LayoutMode, ScaleMode, SortMode, TopNBy, VarianceMode } from "./model";
+import { CardSettings, ChartType, DEFAULT_SETTINGS, DisplayUnits, LayoutMode, ScaleMode, SortMode, TopNBy, VarianceMode } from "./model";
 
 class GeneralCardSettings extends formattingSettings.SimpleCard {
   layout = new formattingSettings.AutoDropdown({
@@ -213,22 +213,26 @@ class StyleCardSettings extends formattingSettings.SimpleCard {
 
 class TitleStyleSettings extends formattingSettings.SimpleCard {
   showTitle = new formattingSettings.ToggleSwitch({ name: "showTitle", displayName: "显示标题", value: DEFAULT_SETTINGS.showTitle });
+  titlePosition = new formattingSettings.AutoDropdown({ name: "titlePosition", displayName: "标题位置", value: DEFAULT_SETTINGS.titlePosition });
+  titleAlignment = new formattingSettings.AutoDropdown({ name: "titleAlignment", displayName: "标题对齐", value: DEFAULT_SETTINGS.titleAlignment });
   titleFontSize = new formattingSettings.NumUpDown({ name: "titleFontSize", displayName: "字号", value: DEFAULT_SETTINGS.titleFontSize });
   titleColor = new formattingSettings.ColorPicker({ name: "titleColor", displayName: "颜色", value: { value: DEFAULT_SETTINGS.titleColor } });
   titleBold = new formattingSettings.ToggleSwitch({ name: "titleBold", displayName: "加粗", value: DEFAULT_SETTINGS.titleBold });
   name = "titleStyle";
   displayName = "标题";
-  slices = [this.showTitle, this.titleFontSize, this.titleColor, this.titleBold];
+  slices = [this.showTitle, this.titlePosition, this.titleAlignment, this.titleFontSize, this.titleColor, this.titleBold];
 }
 
 class ValueStyleSettings extends formattingSettings.SimpleCard {
   showValue = new formattingSettings.ToggleSwitch({ name: "showValue", displayName: "显示主值", value: DEFAULT_SETTINGS.showValue });
+  displayUnits = new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "显示单位", value: DEFAULT_SETTINGS.displayUnits });
+  decimalPlaces = new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "小数位（-1 为自动）", value: DEFAULT_SETTINGS.decimalPlaces });
   valueFontSize = new formattingSettings.NumUpDown({ name: "valueFontSize", displayName: "字号", value: DEFAULT_SETTINGS.valueFontSize });
   valueColor = new formattingSettings.ColorPicker({ name: "valueColor", displayName: "颜色", value: { value: DEFAULT_SETTINGS.valueColor } });
   valueBold = new formattingSettings.ToggleSwitch({ name: "valueBold", displayName: "加粗", value: DEFAULT_SETTINGS.valueBold });
   name = "valueStyle";
   displayName = "主值";
-  slices = [this.showValue, this.valueFontSize, this.valueColor, this.valueBold];
+  slices = [this.showValue, this.displayUnits, this.decimalPlaces, this.valueFontSize, this.valueColor, this.valueBold];
 }
 
 class VarianceStyleSettings extends formattingSettings.SimpleCard {
@@ -311,10 +315,14 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
     cardBorderWidth: clamp(model.style.cardBorderWidth.value, 0, 12),
     cardCornerRadius: clamp(model.style.cardCornerRadius.value, 0, 40),
     showTitle: model.titleStyle.showTitle.value,
+    titlePosition: model.titleStyle.titlePosition.value as CardSettings["titlePosition"],
+    titleAlignment: model.titleStyle.titleAlignment.value as CardSettings["titleAlignment"],
     titleFontSize: clamp(model.titleStyle.titleFontSize.value, 6, 72),
     titleColor: model.titleStyle.titleColor.value.value,
     titleBold: model.titleStyle.titleBold.value,
     showValue: model.valueStyle.showValue.value,
+    displayUnits: model.valueStyle.displayUnits.value as DisplayUnits,
+    decimalPlaces: clampAllowNegative(model.valueStyle.decimalPlaces.value, -1, 4),
     valueFontSize: clamp(model.valueStyle.valueFontSize.value, 8, 120),
     valueColor: model.valueStyle.valueColor.value.value,
     valueBold: model.valueStyle.valueBold.value,
@@ -338,4 +346,9 @@ export function toCardSettings(model: VisualFormattingSettingsModel): CardSettin
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Number(value) || min));
+}
+
+function clampAllowNegative(value: number, min: number, max: number): number {
+  const numeric = Number(value);
+  return Math.max(min, Math.min(max, Number.isFinite(numeric) ? Math.round(numeric) : min));
 }

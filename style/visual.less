@@ -58,6 +58,12 @@ button { font-family: inherit; }
 .kpi-card header { display: flex; align-items: flex-start; justify-content: space-between; min-height: 20px; gap: 6px; }
 .card-title { min-width: 0; overflow: hidden; color: var(--title-color); font-size: var(--title-size); font-weight: var(--title-weight); text-overflow: ellipsis; white-space: nowrap; }
 .card-title.wrap { white-space: normal; }
+.title-align-left .card-title { text-align: left; }
+.title-align-center .card-title { text-align: center; }
+.title-align-right .card-title { text-align: right; }
+.title-position-top.title-align-center header .card-title { flex: 1; }
+.title-position-top.title-align-right header { flex-direction: row-reverse; }
+.title-position-top.title-align-right .card-actions { margin-right: 0; margin-left: -8px; }
 .card-actions { display: flex; gap: 1px; margin: -7px -8px 0 0; opacity: 0; transform: translateY(-2px); transition: opacity 120ms ease, transform 120ms ease; }
 .kpi-card:hover .card-actions, .kpi-card:focus-within .card-actions, .is-focused .card-actions { opacity: 1; transform: none; }
 .card-actions button, .focus-close, .visual-toolbar button { display: grid; place-items: center; border: 0; color: #555; background: transparent; cursor: pointer; }
@@ -66,10 +72,15 @@ button { font-family: inherit; }
 .card-actions .comment-button { color: var(--comment-color); font-size: 10px; }
 
 .metrics { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; min-height: 51px; }
+.primary-metric { display: flex; min-width: 0; flex-direction: column; }
+.primary-metric .card-title { width: 100%; }
 .align-left .metrics { justify-content: flex-start; }
 .align-center .metrics { justify-content: center; }
 .align-right .metrics { justify-content: flex-end; }
-.variance-below .headline { flex-basis: 100%; }
+.align-left .primary-metric { align-items: flex-start; }
+.align-center .primary-metric { align-items: center; }
+.align-right .primary-metric { align-items: flex-end; }
+.variance-below .primary-metric { flex-basis: 100%; }
 .variance-below.align-left .headline { text-align: left; }
 .variance-below.align-center .headline { text-align: center; }
 .variance-below.align-right .headline { text-align: right; }

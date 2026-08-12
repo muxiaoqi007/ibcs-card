@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "../src/model";
-import { applyTopN, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
+import { applyTopN, formatValue, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState } from "../src/renderer";
 import { transformData } from "../src/visual";
 
 const groupSource = { displayName: "省份", roles: { group: true } };
@@ -86,6 +86,9 @@ if (sumCard.value !== 210 || sumCard.highlightedValue !== 55) {
 const sumBullet = getBulletValues(sumCard);
 if (sumBullet.actual !== 210 || sumBullet.previous !== 306 || sumBullet.plan !== 326) {
   throw new Error(`合计模式下子弹图与卡片口径不一致：${JSON.stringify(sumBullet)}`);
+}
+if (formatValue(4980000000, "", "hundredMillions", 1) !== "49.8亿" || formatValue(4980000000, "", "billions", 2) !== "4.98B" || formatValue(4980, "", "none", 0) !== "4,980") {
+  throw new Error("显示单位或小数位格式化错误。");
 }
 
 const topN = applyTopN(cards, { topN: 1, topNBy: "value", showOthers: true });

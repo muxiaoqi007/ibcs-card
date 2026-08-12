@@ -4,6 +4,7 @@ export type VarianceMode = "both" | "relative" | "absolute" | "none";
 export type SortMode = "valueDesc" | "valueAsc" | "varianceDesc" | "varianceAsc" | "titleAsc" | "titleDesc" | "original";
 export type ScaleMode = "independent" | "all" | "group";
 export type TopNBy = "value" | "variance";
+export type DisplayUnits = "auto" | "none" | "thousands" | "tenThousands" | "millions" | "hundredMillions" | "billions";
 
 export interface CardSettings {
   layout: LayoutMode;
@@ -39,10 +40,14 @@ export interface CardSettings {
   cardBorderWidth: number;
   cardCornerRadius: number;
   showTitle: boolean;
+  titlePosition: "top" | "above" | "below";
+  titleAlignment: "left" | "center" | "right";
   titleFontSize: number;
   titleColor: string;
   titleBold: boolean;
   showValue: boolean;
+  displayUnits: DisplayUnits;
+  decimalPlaces: number;
   valueFontSize: number;
   valueColor: string;
   valueBold: boolean;
@@ -133,10 +138,14 @@ export const DEFAULT_SETTINGS: CardSettings = {
   cardBorderWidth: 1,
   cardCornerRadius: 0,
   showTitle: true,
+  titlePosition: "top",
+  titleAlignment: "left",
   titleFontSize: 13,
   titleColor: "#3d3d3d",
   titleBold: true,
   showValue: true,
+  displayUnits: "auto",
+  decimalPlaces: -1,
   valueFontSize: 34,
   valueColor: "#333333",
   valueBold: false,

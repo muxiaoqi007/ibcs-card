@@ -101,6 +101,8 @@
       "displayName": "标题",
       "properties": {
         "showTitle": { "displayName": "显示标题", "type": { "bool": true } },
+        "titlePosition": { "displayName": "标题位置", "type": { "enumeration": [{ "displayName": "卡片顶部", "value": "top" }, { "displayName": "主值上方", "value": "above" }, { "displayName": "主值下方", "value": "below" }] } },
+        "titleAlignment": { "displayName": "标题对齐", "type": { "enumeration": [{ "displayName": "左对齐", "value": "left" }, { "displayName": "居中", "value": "center" }, { "displayName": "右对齐", "value": "right" }] } },
         "titleFontSize": { "displayName": "字号", "type": { "numeric": true } },
         "titleColor": { "displayName": "颜色", "type": { "fill": { "solid": { "color": true } } } },
         "titleBold": { "displayName": "加粗", "type": { "bool": true } }
@@ -110,6 +112,8 @@
       "displayName": "主值",
       "properties": {
         "showValue": { "displayName": "显示主值", "type": { "bool": true } },
+        "displayUnits": { "displayName": "显示单位", "type": { "enumeration": [{ "displayName": "自动", "value": "auto" }, { "displayName": "无缩放", "value": "none" }, { "displayName": "千 (K)", "value": "thousands" }, { "displayName": "万", "value": "tenThousands" }, { "displayName": "百万 (M)", "value": "millions" }, { "displayName": "亿", "value": "hundredMillions" }, { "displayName": "十亿 (B)", "value": "billions" }] } },
+        "decimalPlaces": { "displayName": "小数位（-1 为自动）", "type": { "numeric": true } },
         "valueFontSize": { "displayName": "字号", "type": { "numeric": true } },
         "valueColor": { "displayName": "颜色", "type": { "fill": { "solid": { "color": true } } } },
         "valueBold": { "displayName": "加粗", "type": { "bool": true } }

@@ -214,18 +214,18 @@ export class CardsRenderer {
     const isDimmed = this.settings.dimUnselected && this.selectedKeys.size > 0 && !isSelected;
     const isHighlighted = card.hasHighlights && card.highlightedValue != null;
     const isHighlightDimmed = card.hasHighlights && !isHighlighted;
-    article.className = `kpi-card style-${this.settings.cardStyle} align-${this.settings.valueAlignment} variance-${this.settings.variancePosition}${focused ? " is-focused" : ""}${isSelected ? " is-selected" : ""}${isDimmed ? " is-dimmed" : ""}${isHighlighted ? " is-highlighted" : ""}${isHighlightDimmed ? " is-highlight-dimmed" : ""}`;
+    article.className = `kpi-card style-${this.settings.cardStyle} align-${this.settings.valueAlignment} variance-${this.settings.variancePosition} title-position-${this.settings.titlePosition} title-align-${this.settings.titleAlignment}${focused ? " is-focused" : ""}${isSelected ? " is-selected" : ""}${isDimmed ? " is-dimmed" : ""}${isHighlighted ? " is-highlighted" : ""}${isHighlightDimmed ? " is-highlight-dimmed" : ""}`;
     article.draggable = !focused && this.settings.sortMode === "original";
     article.dataset.key = card.key;
     article.tabIndex = 0;
-    article.setAttribute("aria-label", `${card.title}: ${formatValue(card.value, card.format)}`);
+    article.setAttribute("aria-label", `${card.title}: ${this.formatCardValue(card.value, card.format)}`);
 
     const header = document.createElement("header");
     const title = document.createElement("div");
     title.className = `card-title${this.settings.wrapTitle ? " wrap" : ""}`;
     title.textContent = card.title;
     title.title = card.title;
-    title.hidden = !this.settings.showTitle;
+    title.hidden = !this.settings.showTitle || this.settings.titlePosition !== "top";
     const actions = document.createElement("div");
     actions.className = "card-actions";
     if (card.comment) {
@@ -239,14 +239,20 @@ export class CardsRenderer {
 
     const metrics = document.createElement("div");
     metrics.className = "metrics";
+    const primary = document.createElement("div");
+    primary.className = "primary-metric";
     const headline = document.createElement("div");
     headline.className = "headline";
-    headline.textContent = formatValue(card.value, card.format);
-    if (this.settings.showValue) metrics.append(headline);
+    headline.textContent = this.formatCardValue(card.value, card.format);
+    headline.hidden = !this.settings.showValue;
+    if (this.settings.showTitle && this.settings.titlePosition === "above") primary.append(this.cloneVisibleTitle(title));
+    primary.append(headline);
+    if (this.settings.showTitle && this.settings.titlePosition === "below") primary.append(this.cloneVisibleTitle(title));
+    if (this.settings.showValue || (this.settings.showTitle && this.settings.titlePosition !== "top")) metrics.append(primary);
     if (card.hasHighlights && card.highlightedValue != null && card.highlightedValue !== card.value) {
       const highlighted = document.createElement("div");
       highlighted.className = "highlight-value";
-      highlighted.textContent = formatValue(card.highlightedValue, card.format);
+      highlighted.textContent = this.formatCardValue(card.highlightedValue, card.format);
       highlighted.title = "当前联动高亮值";
       metrics.append(highlighted);
     }
@@ -265,7 +271,7 @@ export class CardsRenderer {
       secondary.className = "secondary-values";
       card.secondary.forEach(item => {
         const node = document.createElement("span");
-        node.append(strong(item.label), ` ${formatValue(item.value, item.format)}`);
+        node.append(strong(item.label), ` ${this.formatCardValue(item.value, item.format)}`);
         secondary.append(node);
       });
       article.append(secondary);
@@ -311,7 +317,7 @@ export class CardsRenderer {
     const relative = visualState.relative;
     const node = document.createElement("div");
     node.className = `variance ${visualState.state}${compact ? " compact" : ""}`;
-    const absText = `${absolute >= 0 ? "+" : ""}${formatValue(absolute, format, true)}`;
+    const absText = `${absolute >= 0 ? "+" : ""}${formatValue(absolute, format, this.settings.displayUnits, this.settings.decimalPlaces, true)}`;
     const relText = relative == null ? "–" : `${relative >= 0 ? "+" : ""}${(relative * 100).toFixed(Math.abs(relative) < 0.1 ? 1 : 0)}%`;
     const icon = document.createElement("span");
     icon.className = "variance-icon";
@@ -330,6 +336,16 @@ export class CardsRenderer {
     comparisonLabel.textContent = `Δ${label}`;
     node.append(icon, value, comparisonLabel);
     return node;
+  }
+
+  private formatCardValue(value: number | null, format?: string): string {
+    return formatValue(value, format, this.settings.displayUnits, this.settings.decimalPlaces);
+  }
+
+  private cloneVisibleTitle(title: HTMLElement): HTMLElement {
+    const clone = title.cloneNode(true) as HTMLElement;
+    clone.hidden = false;
+    return clone;
   }
 
   private createFocus(card: KpiCard, extent: [number, number] | null, maxRelativeVariance: number): HTMLElement {
@@ -692,16 +708,24 @@ function lastNumber(points: TrendPoint[], key: keyof TrendPoint): number | null 
   return null;
 }
 
-export function formatValue(value: number | null, format = "", forceCompact = false): string {
+export function formatValue(value: number | null, format = "", displayUnits: CardSettings["displayUnits"] = "auto", decimalPlaces = -1, forceCompact = false): string {
   if (value == null || !Number.isFinite(value)) return "–";
   const currency = format.includes("€") ? "€" : format.includes("£") ? "£" : format.includes("¥") || format.includes("￥") ? "¥" : format.includes("$") ? "$" : "";
-  if (format.includes("%") && Math.abs(value) <= 10) return `${(value * 100).toFixed(Math.abs(value) < 0.1 ? 1 : 0)}%`;
+  if (format.includes("%") && Math.abs(value) <= 10) {
+    const percent = value * 100;
+    const digits = decimalPlaces >= 0 ? decimalPlaces : Math.abs(value) < 0.1 ? 1 : 0;
+    return `${percent.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
+  }
   const abs = Math.abs(value);
-  const compact = forceCompact || abs >= 1000;
-  const units = compact ? (abs >= 1e9 ? [1e9, "B"] : abs >= 1e6 ? [1e6, "M"] : abs >= 1e3 ? [1e3, "K"] : [1, ""]) : [1, ""];
-  const scaled = value / (units[0] as number);
-  const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
-  return `${currency}${scaled.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: digits })}${units[1]}`;
+  const fixedUnits: Record<Exclude<CardSettings["displayUnits"], "auto">, [number, string]> = {
+    none: [1, ""], thousands: [1e3, "K"], tenThousands: [1e4, "万"], millions: [1e6, "M"], hundredMillions: [1e8, "亿"], billions: [1e9, "B"]
+  };
+  const unit: [number, string] = displayUnits === "auto"
+    ? (forceCompact || abs >= 1000 ? (abs >= 1e9 ? [1e9, "B"] : abs >= 1e6 ? [1e6, "M"] : abs >= 1e3 ? [1e3, "K"] : [1, ""]) : [1, ""])
+    : fixedUnits[displayUnits];
+  const scaled = value / unit[0];
+  const digits = decimalPlaces >= 0 ? decimalPlaces : Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+  return `${currency}${scaled.toLocaleString(undefined, { minimumFractionDigits: decimalPlaces >= 0 ? digits : 0, maximumFractionDigits: digits })}${unit[1]}`;
 }
 
 function isNumber(value: unknown): value is number {
