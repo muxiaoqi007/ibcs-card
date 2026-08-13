@@ -127,7 +127,7 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
     groups.get(key)!.push(index);
   });
 
-  return [...groups.entries()].map(([title, indices]) => {
+  const cards = [...groups.entries()].map(([title, indices]) => {
     const selectionIds: powerbi.visuals.ISelectionId[] = [];
     for (const index of indices) {
       try {
@@ -139,6 +139,37 @@ export function transformData(dataView: DataView, host: powerbi.extensibility.vi
     const scaleGroup = scaleGroupColumn ? String(scaleGroupColumn.values[indices[0]] ?? title) : title;
     return buildCard(title, actualColumns[0], indices, trendColumn, previousColumn, planColumn, forecastColumn, commentCategory, commentValue, tooltipCategory, tooltipValues, actualColumns.slice(1), settings, selectionIds[0], selectionIds, pointSelectionIds, scaleGroup);
   });
+  return normalizeHighlightOwnership(cards);
+}
+
+export function normalizeHighlightOwnership(cards: KpiCard[]): KpiCard[] {
+  const highlighted = cards.filter(card => isNumber(card.highlightedValue));
+  if (highlighted.length < 2) return cards;
+  const firstValue = highlighted[0].highlightedValue as number;
+  const isSameValue = (value: number | null | undefined): boolean => isNumber(value) && nearlyEqual(value, firstValue);
+  if (!highlighted.every(card => isSameValue(card.highlightedValue))) return cards;
+
+  const owners = cards.filter(card => isNumber(card.value) && nearlyEqual(card.value as number, firstValue));
+  if (owners.length !== 1) return cards;
+  const owner = owners[0];
+  return cards.map(card => {
+    if (card.key === owner.key) return card;
+    return {
+      ...card,
+      highlightedValue: null,
+      points: card.points.map(point => ({
+        ...point,
+        actualHighlight: null,
+        previousHighlight: null,
+        planHighlight: null,
+        forecastHighlight: null
+      }))
+    };
+  });
+}
+
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= Math.max(1e-9, Math.max(Math.abs(a), Math.abs(b)) * 1e-9);
 }
 
 function buildCard(title: string, actualColumn: DataViewValueColumn, indices: number[], trendColumn: DataViewCategoryColumn | undefined, previousColumn: DataViewValueColumn | undefined, planColumn: DataViewValueColumn | undefined, forecastColumn: DataViewValueColumn | undefined, commentCategory: DataViewCategoryColumn | undefined, commentValue: DataViewValueColumn | undefined, tooltipCategory: DataViewCategoryColumn | undefined, tooltipValues: DataViewValueColumn[], secondaryColumns: DataViewValueColumn[], settings: CardSettings, selectionId: unknown, selectionIds: unknown[] = selectionId ? [selectionId] : [], pointSelectionIds: Array<unknown | undefined> = [], scaleGroup = title): KpiCard {
@@ -268,4 +299,4 @@ function formatCategory(value: PrimitiveValue | undefined, fallback: number): st
   return text;
 }
 
-function isNumber(value: number | null): value is number { return value != null; }
+function isNumber(value: number | null | undefined): value is number { return typeof value === "number" && Number.isFinite(value); }

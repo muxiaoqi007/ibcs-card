@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from "../src/model";
 import { applyTopN, formatValue, getAxisBreak, getBulletValues, getTrendComparisonKey, getVarianceVisualState, getVisibleBulletNumbers } from "../src/renderer";
-import { transformData } from "../src/visual";
+import { normalizeHighlightOwnership, transformData } from "../src/visual";
 
 const groupSource = { displayName: "省份", roles: { group: true } };
 const trendSource = { displayName: "日期", roles: { trend: true } };
@@ -93,6 +93,35 @@ if (formatValue(4980000000, "", "hundredMillions", 1) !== "49.8亿" || formatVal
 const visibleBulletNumbers = getVisibleBulletNumbers({ actual: 100, plan: 130, previous: 90, forecast: 150 }, { showBulletPlanMarker: false, showBulletPreviousMarker: true, showBulletForecastMarker: false });
 if (visibleBulletNumbers.join(",") !== "0,100,90") {
   throw new Error(`隐藏的子弹图标记仍在影响刻度：${visibleBulletNumbers.join(",")}`);
+}
+
+const cardFixture = (title: string, value: number, highlightedValue: number | null) => ({
+  key: title,
+  title,
+  value,
+  previous: null,
+  plan: null,
+  forecast: null,
+  highlightedValue,
+  hasHighlights: true,
+  points: [{ category: "1", actual: value, previous: null, plan: null, forecast: null, actualHighlight: highlightedValue }],
+  secondary: []
+});
+const broadcastCards = normalizeHighlightOwnership([
+  cardFixture("湖北省", 498, 373),
+  cardFixture("广东省", 373, 373),
+  cardFixture("浙江省", 284, 373)
+]);
+if (broadcastCards.find(card => card.title === "广东省")?.highlightedValue !== 373 || broadcastCards.filter(card => card.highlightedValue != null).length !== 1 || broadcastCards.find(card => card.title === "湖北省")?.points[0].actualHighlight != null) {
+  throw new Error(`广播高亮没有归属到唯一匹配卡片：${JSON.stringify(broadcastCards.map(card => ({ title: card.title, highlight: card.highlightedValue })))}`);
+}
+const segmentedCards = normalizeHighlightOwnership([
+  cardFixture("湖北省", 498, 120),
+  cardFixture("广东省", 373, 95),
+  cardFixture("浙江省", 284, 80)
+]);
+if (segmentedCards.map(card => card.highlightedValue).join(",") !== "120,95,80") {
+  throw new Error("逐卡不同的外部维度高亮被错误修改。");
 }
 
 const topN = applyTopN(cards, { topN: 1, topNBy: "value", showOthers: true });
